@@ -1,0 +1,223 @@
+Detection of parasitic protists in wastewater: abundance versus activity
+================
+Jule Freudenthal
+2021-12-10
+
+**R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
+**Packages**
+
+-   docstring v. 1.0.0  
+-   dplyr v. 1.0.7  
+-   ggplot2 v. 3.3.5  
+-   ggpubr v. 0.4.0  
+-   reshape2 v. 1.4.4  
+-   rlist v. 0.4.6.1  
+-   rstatix v. 0.7.0  
+-   tidyr v. 1.1.3
+
+``` r
+# Load packages
+library(docstring)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(reshape2)
+library(rlist)
+library(rstatix)
+library(tidyr)
+
+# Load functions
+source("./Functions/style.sheet.R")
+```
+
+To evaluate differences between measurable presence and activity, we
+compare the relative abundance of rDNA versus rRNA reads for selected
+parasitic protist taxa, focusing on the inflow compartment where they
+were most abundant. We test for differences between rDNA and rRNA
+relative abundance by Sign test, not considering outliers (function
+sign\_test, package rstatix).
+
+# 01 Transform data
+
+``` r
+# Create vector specifying parasitic protists
+parasitic_protists <- c("Blastocystis", "Copromyxa", "Dientamoeba", "Entamoeba", "Giardia", 
+                        "Guttulinopsis", "Rosculus")
+
+# Create open data frame for box plots
+data_boxplots <- data.frame()
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+
+  #-------------------------------- Load data -------------------------------#
+  # Load count- and meta- and taxonomy data
+  load(paste0("./DataToAnalyse/RData/", data_type, "_data.rds"))
+  
+  # Check if row names of taxonomy and count data match
+  if(!identical(rownames(taxonomy), rownames(counts))){
+    stop("Row names of taxonomy and counts must match")
+  }
+  
+  # Use only Protist data
+  counts <- counts[taxonomy$Microbial_Community == "Protists",]
+  taxonomy <- taxonomy[rownames(taxonomy) %in% rownames(counts),]
+
+  # Normalize counts (relative counts)
+  normalized_counts <- sweep(x = counts, MARGIN = 2, STATS = colSums(counts), FUN = '/')*100
+
+  # Filter data, only keep selected parasitic protists
+  normalized_counts <- normalized_counts[taxonomy[,"Genus"] %in% parasitic_protists,]
+  taxonomy <- taxonomy[taxonomy[,"Genus"] %in% parasitic_protists,]
+
+  # All column specifying the genera to normalized abundance data 
+  data_boxplot <- cbind(Genera=taxonomy[,"Genus"], normalized_counts)
+  
+  # Reshape data frames, on column per 'Genera', 'Sample ID' and 'normalized abundance'
+  data_boxplot <- melt(data_boxplot, id=(c("Genera")))
+  
+  # Separate 'Sample ID' into columns for Locations and Sample Places  
+  data_boxplot <- data_boxplot %>% separate(variable, c("Location", "Sample_places"), "_")
+
+  # Assign column specifying the data type (DNA/RNA) 
+  data_boxplot$Data <- ifelse(data_type == "DNA", "Metagenomics", "Metatranscriptomics")
+
+  # Save table in data frame
+  data_boxplots <- rbind(data_boxplots, data_boxplot) 
+} 
+```
+
+# 02 Sign test
+
+``` r
+# Subset table, only keep Inflow data
+data_boxplots <- data_boxplots[data_boxplots$Sample_places == "INF",]
+
+# Split data frame to one list per Genus, name list elements  
+data_boxplots <-  lapply(data_boxplots %>% group_split(Genera), data.frame)
+names(data_boxplots) <- parasitic_protists
+
+# Create open list for boxplot data without outliers
+data_boxplots_no_out <- list()
+
+# Create open data frame for Sign test
+Sign_tests <- setNames(data.frame(matrix(ncol = 2, nrow = 0)), c("Genera", "p"))
+
+taxon = data_boxplots[[1]]
+
+# Loop iterates over the selected parasitic protists
+for(taxon in data_boxplots){
+
+  # Visualise boxplot with outliers
+  plot <- ggplot(data = taxon, aes(x=Data, y=value, fill=Data)) +
+    geom_boxplot(outlier.size=NA) 
+  
+  # Extract data without outliers
+  data_no_out <- data.frame(ggplot_build(plot)$data)
+  data_no_out <- rbind(taxon[taxon$Data == "Metagenomics",]
+                       [!(taxon[taxon$Data == "Metagenomics","value"] %in%
+                            data_no_out$outliers[[1]]),],
+                       taxon[taxon$Data != "Metagenomics",]
+                       [!(taxon[taxon$Data != "Metagenomics","value"] %in%
+                            data_no_out$outliers[[2]]),])
+ 
+  # Exclude samples with data for only one locations 
+  data_no_out <- data_no_out[!data_no_out$Location %in%
+                               names(which(table(data_no_out$Location) != 2)),]
+  
+
+  # Sign test
+  sign_test <- data_no_out %>% sign_test(value ~ Data)
+  Sign_tests <- rbind(Sign_tests, data.frame(Genera = unique(data_no_out$Genera), 
+                                             p = sign_test$p))
+
+  # Save boxplot data without outliers in list
+  data_boxplots_no_out <- list.append(data_boxplots_no_out, data_no_out)
+}
+
+# Mark sigificance of p-values with stars
+Sign_tests$sigificance <- ""
+Sign_tests[Sign_tests$p < 0.05,"sigificance"] <- "*"
+Sign_tests[Sign_tests$p < 0.01,"sigificance"] <- "**"
+Sign_tests[Sign_tests$p < 0.001,"sigificance"] <- "***"
+
+# Name list element
+names(data_boxplots_no_out) <- parasitic_protists
+```
+
+# 03 Visualization
+
+``` r
+# Create open list for all plots and legends
+boxplots <- list()
+boxplots_labels <- list()
+
+# Loop iterates over the selected parasitic protists
+for(taxon in names(data_boxplots_no_out)){
+
+  # Extract data
+  plot_data_no_out <- data_boxplots_no_out[[taxon]]
+  plot_data <- data_boxplots[[taxon]]
+  
+  # Basic plot
+  plot <- ggplot(data = plot_data, aes(x=Data, y=value, fill=Data)) +
+    geom_boxplot(outlier.size=-1) +
+    geom_line(data=plot_data_no_out, aes(group = Location), 
+              col = "dimgray", alpha = 0.6, size=0.5) +
+    theme_classic() +
+    coord_cartesian(ylim = c(NA,max(plot_data_no_out$value))) +
+    theme(plot.margin = margin(t = 0, l=0, r=0, b=-10))
+
+  
+  # Set y axis label, only for the first plot (Blastocystis)
+  if(taxon == names(data_boxplots_no_out)[1]){
+    plot <- style.sheet(plot, y.axis.label = "Relative abundances [%]") 
+  } else {
+    plot <- style.sheet(plot, y.axis.label = "") 
+  }
+  
+  # Adjust plot
+  plot <- style.sheet(plot, colors = "black", x.axis.text.tick.marks = "", x.axis.label = "", 
+                      fill.colors = c("green3","gold"),  
+                      plot.title = Sign_tests[Sign_tests$Genera == taxon, "sigificance"]) 
+  
+  # Create labels for x-axis
+  label = style.sheet(ggplot() + theme_void(), plot.title = taxon, plot.title.size = 12, 
+                      plot.title.style = "italic", plot.title.rotation = 45, 
+                      plot.title.horizontal.position = 0.7, 
+                      plot.title.vertical.position = 0.7)
+  
+  # Save plot and x-axis labels in list
+  #plot <- plot + theme(plot.margin = margin(t = 20, l=0, r=0, b=-10))
+  boxplots <- list.append(boxplots, plot)
+  label <- label + theme(plot.margin = margin(t = -10, l=10, r=0, b=10))
+  boxplots_labels <- list.append(boxplots_labels, label)
+}
+
+# Get legend of one boxplot
+legend_boxplot <- get_legend(style.sheet(plot, legend.position = "bottom"))
+
+# Arrange subplots
+figure <- ggarrange(plotlist=c(boxplots), ncol = 7, nrow=1,  
+                    widths = c(2,2,2,2.45,2.45,2,2.18), legend = "none")
+
+# Arrange labels
+labels <- ggarrange(plotlist=boxplots_labels, ncol = 7, nrow=1,
+                    widths = c(2,2,2,2.45,2.45,2,2.18))
+
+# Arrange whole plot
+boxplots <- ggarrange(figure, labels, legend_boxplot, ncol = 1, nrow=3, heights = c(2.8,1,0.2))
+
+print(boxplots)
+```
+
+<img src="11_DetectionOfParasiticProtistsInWastewater_AbundanceVersusActivity_files/figure-gfm/unnamed-chunk-7-1.png" style="display: block; margin: auto;" />
+
+Boxplots show, for selected taxa, the 25 % and 75 % percentiles and
+medians of the relative abundance of protist reads in metagenomic data
+(rDNA, green) and metatranscriptomic data (rRNA, yellow), in samples
+from the inflow compartment (at N=10 WWTP locations). Significant
+differences between the rDNA and rRNA abundances are indicated with
+asterisks (Sign test, \* p &lt; 0.05; \*\* p &lt; 0.01; \*\*\* p &lt;
+0.001). The grey lines link the rDNA and rRNA sample pairs from the same
+location.

@@ -1,0 +1,966 @@
+Data processing
+================
+Jule Freudenthal
+2021-12-10
+
+**R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
+**Packages**
+
+-   dplyr v. 1.0.7  
+-   gt v. 0.3.0  
+-   knitr v.1.33
+-   mgsub v. 1.7.2
+-   rlist v. 0.4.6.1  
+-   rprojroot v. 2.0.2
+
+``` r
+# Load packages
+library(dplyr)
+library(gt)
+library(mgsub)
+library(rlist)
+```
+
+We made use of the publicly available data sets from [Ju et
+al. (2019)](https://doi.org/10.1038/s41396-018-0277-8). In brief, these
+authors sampled 12 WWTPs across Switzerland for DNA (shotgun
+metagenomics) and RNA (shotgun metatranscriptomics). At each facility,
+they sampled four compartments connected by continuous flow:
+
+-   INF = sewage-inflow  
+-   DNF = denitrifying bioreactor  
+-   NFC = nitrifying bioreactor  
+-   EFF = effluent
+
+We used metagenomic data (DNA) to assess the WWTP community in terms of
+taxonomic composition, and the metatranscriptomic data (RNA) as a
+measure of metabolic and reproductive activity. We assessed the raw data
+via MG-RAST ([Meyer et al.,
+2008](https://bmcbioinformatics.biomedcentral.com/articles/10.1186/1471-2105-9-386))
+and made use of the implemented MG-RAST prefiltering and ribosomal
+sequence calling. To identify prokaryotic taxa (bacteria and Archaea) in
+the WWTP samples, we searched for sequence similarities in the SILVA
+database ([Pruesse et al., 2007](https://doi.org/10.1093/nar/gkm864)).
+Similarly, to identify eukaryotic taxa (protists, fungi, and microscopic
+metazoa), we searched the PR<sup>2</sup> database ([Guillou et al.,
+2013](https://academic.oup.com/nar/article/41/D1/D597/1064851)). Using
+BLASTN ([Camacho et al.,
+2009](https://link.springer.com/article/10.1186/1471-2105-10-421)), we
+filtered the search results using an e-value of 1e<sup>-50</sup> and a
+similarity threshold of ≥ 80 %, keeping only the best hit.
+
+# 01 Data preparation
+
+**Structure of the data sets:** All information on **one taxon** is in
+**one row**. Meaning, the phylogenetic assignment of all taxa to a group
+(e.g. class) as well as the measurements of a sample are in one column
+respectively.
+
+<table style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif; display: table; border-collapse: collapse; margin-left: auto; margin-right: auto; color: #333333; font-size: 16px; font-weight: normal; font-style: normal; background-color: #FFFFFF; width: auto; border-top-style: solid; border-top-width: 2px; border-top-color: #A8A8A8; border-right-style: none; border-right-width: 2px; border-right-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #A8A8A8; border-left-style: none; border-left-width: 2px; border-left-color: #D3D3D3;">
+  
+  
+  <tbody style="border-top-style: solid; border-top-width: 2px; border-top-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #D3D3D3;">
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Supergroup</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Phylum</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Class</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Order</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Family</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Genus</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Species</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">AD_DNF</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">AD_EFF</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">AD_INF</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Alveolata</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Coccidia</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Eucoccidiorida</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Cryptosporidium</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Cryptosporidium_parvum</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;"> 0</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Alveolata</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Coccidia</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Eucoccidiorida</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Cryptosporidium</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Cryptosporidium_struthionis</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;"> 0</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Alveolata</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodellidae</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodellidae_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodella</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodella_sp</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;"> 0</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Alveolata</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodellidae</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodellidae_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodella</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodella_tetrahymenae</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;"> 0</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Alveolata</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Apicomplexa_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodellidae</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodellidae_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodellidae_XX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Colpodellidae_XX_sp</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">  0</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;"> 0</td></tr>
+  </tbody>
+  
+  
+</table>
+
+## 01.1 Backup
+
+Copy data to avoid using the [original data](../OriginalData/) for the
+analyses.
+
+``` r
+# Create new directory for preprocessed and Metadata
+if(!file.exists("./DataToAnalyse")){dir.create("./DataToAnalyse")}
+if(!file.exists("./DataToAnalyse/PreprocessedData")){dir.create("./DataToAnalyse/PreprocessedData")}
+if(!file.exists("./DataToAnalyse/Metadata")){dir.create("./DataToAnalyse/Metadata")}
+
+# Create a vector specifying the file names of original count tables and metadata 
+filenames_count_tables <- list.files("./OriginalData/", pattern=".*data_Ribo_Blast.*.csv", full.names=FALSE)
+filenames_metadata <- list.files("./OriginalData/", pattern="Metadata.*.csv|.xlsx", full.names=FALSE)
+
+# Create a vector specifying the new file names 
+filenames_count_tables_new <- gsub("_Ribo_Blast|_Countdata|_filtered", "", filenames_count_tables)
+
+# Copy files
+file.copy(from = paste0("./OriginalData/", filenames_count_tables), 
+          to = "./DataToAnalyse/PreprocessedData/", overwrite = TRUE)
+file.copy(from = paste0("./OriginalData/", filenames_metadata), 
+          to = "./DataToAnalyse/Metadata/", overwrite = TRUE)
+
+# Rename files
+file.rename(from = paste0("./DataToAnalyse/PreprocessedData/", filenames_count_tables), 
+            to = paste0("./DataToAnalyse/PreprocessedData/", filenames_count_tables_new))
+```
+
+## 01.2 Merge data
+
+We merge the PR<sup>2</sup> and SILVA data per data type (DNA/RNA).
+Further, we create a column that specifies the respective database
+(PR<sup>2</sup>/SIVA).
+
+``` r
+# Create a vector specifying the file names of the count tables
+filenames_count_tables <- list.files("./DataToAnalyse/PreprocessedData/", pattern="SILVA|PR2", full.names=T)
+
+# Create open list for count tables
+count_tables <- list()
+
+# Loop iterates over each count table 
+for(name_count_table in filenames_count_tables){
+  
+  # Load count table
+  count_table <- read.table(name_count_table, header = TRUE, sep = ";", dec = ".", row.names = 1)
+
+  # Convert factors to characters 
+  count_table <- mutate_if(count_table, is.factor, as.character)
+
+  # Change column names 'Domain' or 'Supergroup' to enable merging 
+  colnames(count_table)[grepl("Domain|Supergroup", colnames(count_table))] <- "Supergroup_Domain"
+  
+  # Add column specifying the database (PR2/SILVA)
+  if(grepl("PR2", name_count_table)){
+    count_table <- cbind(select_if(count_table, is.character), Database="PR2", 
+                         select_if(count_table, is.numeric))
+  } else {
+    count_table <- cbind(select_if(count_table, is.character), Database="SILVA", 
+                         select_if(count_table, is.numeric))
+  }
+
+  # Save count table in the list, names list elements
+  count_tables <- list.append(count_tables, count_table)
+  names(count_tables)[length(count_tables)] <- gsub(".*/|.csv", "", name_count_table) 
+}
+```
+
+``` r
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Merge SILVA and PR2 data for DNA and RNA data, respectively
+  count_table <- do.call(rbind, count_tables[grepl(data_type, names(count_tables))])
+  rownames(count_table) <- NULL
+  
+  # Load metadata
+  metadata <- read.table(paste0("./DataToAnalyse/Metadata/Metadata_", data_type, ".csv"),
+                         sep=";", dec=".", header = TRUE, row.names = 1)
+  
+  # Order rows of metadata, they must match the columns of the abundance data
+  # This is very important for all analyses
+  metadata <- metadata[match(colnames(select_if(count_table, is.numeric)), rownames(metadata)),]
+  
+  # Save count and metadata as csv 
+  write.csv2(count_table,paste0("./DataToAnalyse/PreprocessedData/", data_type, "_data.csv"))
+  write.table(metadata, paste0("./DataToAnalyse/Metadata/Metadata_", data_type,".csv"), 
+              sep = ";", dec = ".", col.names = NA)
+} 
+```
+
+# 02 Filter data to exclude higher plants and macroscopic animals
+
+We filter the count tables to exclude putative contaminants, such as
+sequences derived from macroscopic animals, higher plants
+(Streptophyta). The remaining community is distinguished in prokaryotes
+(bacteria and archaea) and eukaryotes (protists, fungi, and microscopic
+metazoa). For convenience, we refer to the assessed communities as
+‘microbial communities’, although they also include microscopic fauna
+(gastrotrichs, nematodes, rotifers and tardigrades).
+
+**Exclude**:  
+1. The entire Streptophyta phylum.  
+2. Most classes of the metazoan phylum, only keep Gastrotricha,
+Nematoda, Rotifera and Tardigrada.
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" , 
+                                   filenames_count_tables[1,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+
+  # Filter to exclude plants
+  count_table <- count_table[!(count_table$Phylum == "Streptophyta"), ]
+
+  # Filter to exclude non microscopic metazoa
+  microscopic_metazoa <- count_table[count_table$Phylum == "Metazoa" & count_table$Class %in% 
+                                  c("Gastrotricha", "Nematoda", "Rotifera", "Tardigrada"),]
+  count_table <- rbind(count_table[!(count_table$Phylum == "Metazoa"), ], microscopic_metazoa)
+
+  # Save filtered count data as csv
+  write.csv2(count_table, paste0("./DataToAnalyse/PreprocessedData/", data_type, "_", 
+                                 filenames_count_tables[2,]))
+}
+```
+
+# 03 Rename taxa
+
+We renamed all taxa with cryptic names to avoid having two genera with
+different names although they belong to the same phylogenetic group.
+This would falsify the results as the diversity would be overestimated.
+
+<font style='color:red'>**Attention:**</font> Please note that the
+following steps are only applicable to these specific data sets, they
+are not compatible with other data sets.
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+```
+
+## 03.1 Eukaryotes
+
+``` r
+# Load table with names that shall be replaced
+names_to_replace <- read.table("./R/Lists/Rename_PR2_data.csv", 
+                               header = TRUE, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" ,
+                                   filenames_count_tables[2,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+  
+  # Subset data, only keep PR2 data
+  count_table <- count_table[count_table$Database == "PR2",]
+
+  for(taxonomic_level in 1:6){
+    count_table[,taxonomic_level] <- gsub("_[1-9]|-[1-9]", "", count_table[,taxonomic_level])
+  }
+  
+  # Pattern replacement
+  for(taxonomic_level in unique(names_to_replace$Taxonomic.level)){
+    pattern <- names_to_replace[names_to_replace$Taxonomic.level %in% taxonomic_level,"Pattern"]
+    replacement <- names_to_replace[names_to_replace$Taxonomic.level %in% taxonomic_level,"Replacement"]
+    count_table[,taxonomic_level] <- mgsub(count_table[,taxonomic_level], pattern, replacement)
+  }
+  
+  count_table[grep("Lecythium_sp", count_table$Species),"Genus"] <- "Rhogostoma"
+  count_table[grep("Lecythium_sp", count_table$Species),"Family"] <- "Rhogostomidae"
+  count_table[grep("Lecythium_sp", count_table$Species),"Order"] <- "Cryomonadida"
+  count_table[grep("UnclassifiedTobrilidae", count_table$Genus),"Family"] <- "Tobrilidae"
+  count_table[grep("UnclassifiedTobrilidae", count_table$Genus),"Genus"] <- "Tobrilidae_X"
+  count_table[grep("Rosculus", count_table$Genus),"Order"] <- "Sainouridea"
+  count_table[grep("Euglyphica_X", count_table$Family),"Family"] <- "Euglyphida_X"
+  count_table[grep("Peniculida", count_table$Family),"Family"] <- "Frontoniidae"
+  count_table[grep("Peniculida_X", count_table$Genus),"Genus"] <- "Frontoniidae_X"
+  
+  for(taxonomic_level in 2:6){
+    for(taxa in seq(nrow(count_table))){
+      if(grepl(".*_X|.*_XX|.*_XXX|.*_XXXX|.*_XXXXX", count_table[taxa,taxonomic_level-1])){
+        count_table[taxa,taxonomic_level] <- 
+          gsub(".*[Cc]lade.*|.*[Ll]ineage.*|.*[Gg]roup.*|.*[Ll]ike.*|.*[Nn]ovel-.*|
+               |.*CONT.*|OLIGO.*|.*PHYLL.*|.*MAST.*|.*NASSO.*|.*PLAGI1.*",
+               paste0(count_table[taxa,taxonomic_level-1],"X"), 
+               count_table[taxa,taxonomic_level])
+        count_table[taxa,taxonomic_level] <- gsub("Polar-centric-|Radial-centric-basal-|
+                                         |-Non-trypanosome|-Trypanosomes|Free-living-",
+                                         "", count_table[taxa,taxonomic_level])
+      } else {
+        count_table[taxa,taxonomic_level] <- 
+          gsub(".*[Cc]lade.*|.*[Ll]ineage.*|.*[Gg]roup.*|.*[Ll]ike.*|.*[Nn]ovel-.*|
+               |.*CONT.*|OLIGO.*|.*PHYLL.*|.*MAST.*|.*NASSO.*|.*PLAGI1.*", 
+               paste0(count_table[taxa,taxonomic_level-1],"_X"), 
+               count_table[taxa,taxonomic_level])
+        count_table[taxa,taxonomic_level] <- gsub("Polar-centric-|Radial-centric-basal-|
+                                         |-Non-trypanosome|-Trypanosomes|Free-living-",
+                                         "", count_table[taxa,taxonomic_level])
+      }
+    }
+  }
+  
+  for(taxonomic_level in 2:6){
+    for(taxa in seq(nrow(count_table))){
+      count_table[taxa,taxonomic_level] <- gsub("[1-9]","",count_table[taxa,taxonomic_level])
+      count_table[taxa,taxonomic_level] <- gsub(".[A-W]$|[A-W]_", "", 
+                                               count_table[taxa,taxonomic_level])
+      if(count_table[taxa,taxonomic_level] == count_table[taxa,taxonomic_level-1]){
+        if(grepl(".*_X|.*_XX|.*_XXX|.*_XXXX|.*_XXXXX", count_table[taxa,taxonomic_level-1])){
+          count_table[taxa,taxonomic_level] <- paste0(count_table[taxa,taxonomic_level-1],"X")
+        } else {
+          count_table[taxa,taxonomic_level] <- paste0(count_table[taxa,taxonomic_level-1],"_X")
+        }
+      }
+    }
+  }
+assign(paste0(data_type, "_", "PR2"), count_table)
+}
+```
+
+## 03.2 Prokaryotes
+
+``` r
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" ,
+                                   filenames_count_tables[2,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+  
+  # Subset data, only keep SILVA data
+  count_table <- count_table[count_table$Database == "SILVA",]
+
+  count_table$Phylum <- gsub("Woesearchaeota.*", "Woesearchaeota", count_table$Phylum)
+  count_table$Phylum <- gsub("Marinimicrobia.*", "Marinimicrobia", count_table$Phylum)
+  count_table$Genus <- gsub("Candidatus.", "Candidatus ", count_table$Genus)
+  count_table$Genus <- gsub("\\|sp\\.\\|.*", "", count_table$Genus)
+  
+  for(taxomonic_level in c(2:6)){
+    count_table[,taxomonic_level] <- gsub("..[Ss]ubgroup.*","",count_table[,taxomonic_level])
+    count_table[,taxomonic_level] <- gsub("\\|[1-9]$","",count_table[,taxomonic_level])
+    count_table[,taxomonic_level] <- gsub("\\|sensu\\|stricto.*","",count_table[,taxomonic_level])
+  }
+  
+  pairs <- list(c("Acidobacterium","Acidobacteriaceae"),c("Acinetobacter","Moraxellaceae"),
+                c("Chlamydia","Chlamydiaceae"),c("Clostridium","Clostridiaceae"),
+                c("Azospirillum","Rhodospirillaceae"))
+  taxa_to_keep <- c("Lachnoclostridium","Synechococcus","Oscillatoria")
+  
+  for(taxomonic_level in c(2:6)){
+    for(taxa in seq(nrow(count_table))){
+      if(colnames(count_table)[taxomonic_level] == "Genus"){
+        for(pair in pairs){
+          if(count_table[taxa,taxomonic_level] == pair[1] & 
+             count_table[taxa,taxomonic_level-1] != pair[2]){
+            if(grepl(".*_X", count_table[taxa,taxomonic_level-1])){
+              count_table[taxa,taxomonic_level] <- 
+                paste0(count_table[taxa,taxomonic_level-1],"X")
+            } else {
+              count_table[taxa,taxomonic_level] <- 
+                paste0(count_table[taxa,taxomonic_level-1],"_X")
+            }
+          }
+        }
+        for(keep in taxa_to_keep){
+          if(grepl(keep, count_table[taxa,taxomonic_level])){
+             count_table[taxa,taxomonic_level] <- gsub(paste0(keep,".*"), keep, 
+                                                      count_table[taxa,taxomonic_level])
+          }
+        }
+      }
+      
+      if(colnames(count_table)[taxomonic_level] == "Order" & 
+         count_table[taxa,taxomonic_level] == "Rickettsiales"){
+        if(grepl("Mitochondria", count_table[taxa,taxomonic_level+1])){
+          count_table[taxa,taxomonic_level+1] <- "Rickettsiales_X"
+          count_table[taxa,taxomonic_level+2] <- "Rickettsiales_XX"
+        }
+      }
+      if(grepl("[Ss]urface|[Ss]ubgroup|[Ff]amily.*|[Ss]ubsection.*|[Uu]nidentified|
+               |[Uu]ncultured|[1-9]|[A-W][A-W]|\\|", count_table[taxa,taxomonic_level])){
+        if(grepl(".*_X", count_table[taxa,taxomonic_level-1])){
+          count_table[taxa,taxomonic_level] <- paste0(count_table[taxa,taxomonic_level-1],"X")
+        } else {
+          count_table[taxa,taxomonic_level] <- paste0(count_table[taxa,taxomonic_level-1],"_X")
+        }
+      }
+      if(count_table[taxa,taxomonic_level] == count_table[taxa,taxomonic_level-1]){
+        if(grepl(".*_X", count_table[taxa,taxomonic_level-1])){
+          count_table[taxa,taxomonic_level] <- paste0(count_table[taxa,taxomonic_level-1],"X")
+        } else {
+          count_table[taxa,taxomonic_level] <- paste0(count_table[taxa,taxomonic_level-1],"_X")
+        }
+      }
+    }
+  
+    if(colnames(count_table)[taxomonic_level] == "Class") {
+      count_table$Class <- gsub("Gemmatimonadetes.*", "Gemmatimonadetes", count_table$Class)
+      count_table$Class <- gsub("Elusimicrobia.*", "Elusimicrobia", count_table$Class)
+      count_table$Class <- gsub("Thermotogae.*", "Thermotogae", count_table$Class)
+      count_table$Class <- gsub("Deferribacteres.*", "Deferribacteres", count_table$Class)
+      count_table$Class <- gsub("Aquificae.*", "Aquificae", count_table$Class)
+    }
+  }
+
+  assign(paste0(data_type, "_", "SILVA"), count_table)
+}
+```
+
+## 03.3 Export count data
+
+``` r
+# Save count data as csv
+write.csv2(rbind(DNA_PR2,DNA_SILVA), paste0("./DataToAnalyse/PreprocessedData/DNA_", 
+                                            filenames_count_tables[3,]))
+write.csv2(rbind(RNA_PR2,RNA_SILVA), paste0("./DataToAnalyse/PreprocessedData/RNA_", 
+                                            filenames_count_tables[3,]))
+```
+
+# 04 Bin sequences at the genus level and exclude singletons
+
+Given the limitations of the sequencing method, i.e. the read length of
+\~ 150 bp per fragment, the limited sequencing depth, and the sequencing
+of random fragments, we bin the sequences at genus level, to avoid
+overestimation of microbial diversity in the data set. Subsequently, we
+exclude singletons from the data set.
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" , 
+                                   filenames_count_tables[3,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+  
+  # Merge count data on genus level
+  count_table <- count_table[,colnames(count_table)!="Species"]
+  count_table <- aggregate(. ~ Supergroup_Domain+Phylum+Class+Order+Family+Genus+Database, count_table, sum)
+  
+  # Exclude singletons 
+  count_table <- count_table[rowSums(select_if(count_table, is.numeric)) != 1,]
+
+  # Save the count table as csv
+  write.csv2(count_table, paste0("./DataToAnalyse/PreprocessedData/", data_type, "_",
+                                 filenames_count_tables[4,]))
+ }
+```
+
+# 05 Filter data to exclude locations
+
+## 05.1 Exclude location BE
+
+We remove the location “BE” from all analyses because its design
+prevented the sampling of its denitrification bioreactor.
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table and metadata
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" , 
+                                   filenames_count_tables[4,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+  metadata <- read.table(paste0("./DataToAnalyse/Metadata/Metadata_", data_type, ".csv"), 
+                         header = TRUE, sep = ";", dec = ".", row.names = 1)
+  
+  # Exclude locations BE
+  count_table <- count_table[,!grepl("BE", colnames(count_table))]
+  metadata <- metadata[!grepl("BE", rownames(metadata)),]
+  
+  # Exclude 'null' taxa
+  print(paste(sum(rowSums(select_if(count_table, is.numeric)) == 0),
+              "taxa, specific to the location BE of the", data_type, "data, were excluded."))
+  count_table <- count_table[rowSums(select_if(count_table, is.numeric)) != 0,]
+
+  # Save the count table as csv
+  write.csv2(count_table, paste0("./DataToAnalyse/PreprocessedData/", data_type, "_", 
+                                 filenames_count_tables[5,]))
+  write.table(metadata, paste0("./DataToAnalyse/Metadata/Metadata_", data_type,".csv"), 
+              sep = ";", dec = ".")
+}
+```
+
+    ## [1] "15 taxa, specific to the location BE of the DNA data, were excluded."
+    ## [1] "6 taxa, specific to the location BE of the RNA data, were excluded."
+
+## 05.2 Exclude location FD
+
+**Biological replicates:** Biological replicates are parallel
+measurements of biologically distinct samples, that were e.g. collected
+at the same time points or that were treated identically, capturing
+random biological variation.
+
+Considering that we analyze WWTPs at different locations, each affected
+by location-specific environmental and operational factors, we can not
+necessarily treat the locations as biological replicates. Therefore, we
+screened the data for potential outliers (see [Comparing microbial
+communities between WWTP locations to identify
+outliers](02_MultivariateDispersionAndBetaDiversity.md)). Based on these
+results, we remove the WWTP location **FD** from the data set.
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table and metadata
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" , 
+                                   filenames_count_tables[5,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+  metadata <- read.table(paste0("./DataToAnalyse/Metadata/Metadata_", data_type, ".csv"),
+                         header = TRUE, sep = ";", dec = ".", row.names = 1)
+
+  # Exclude locations FD
+  count_table <- count_table[,!grepl("FD", colnames(count_table))]
+  metadata <- metadata[!grepl("FD", rownames(metadata)),]
+  
+  # Delete 'null' taxa
+  print(paste(sum(rowSums(select_if(count_table, is.numeric)) == 0),
+              "taxa, specific to the location FD of the", data_type, "data, were excluded."))
+  count_table <- count_table[rowSums(select_if(count_table, is.numeric)) != 0,]
+
+  # Export the count table as csv
+  write.csv2(count_table, paste0("./DataToAnalyse/PreprocessedData/", data_type, "_", 
+                                 filenames_count_tables[6,]))
+  write.table(metadata, paste0("./DataToAnalyse/Metadata/Metadata_", data_type, ".csv"),
+              sep = ";", dec = ".")
+ }
+```
+
+    ## [1] "11 taxa, specific to the location FD of the DNA data, were excluded."
+    ## [1] "32 taxa, specific to the location FD of the RNA data, were excluded."
+
+# 06 Rarefy data
+
+We subsample (rarefy) sequence data to guarantee a similar sampling
+depth of ribosomal (marker) gene sequences across the entire range of
+DNA and RNA data, respectively. Prior to rarefaction, we remove one RNA
+sample (TG\_NFC) and two DNA samples (FR\_INF and TU\_EFF) from the data
+set because of exceptionally low sequencing depth in ribosomal genes.
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE,
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+
+  # Load count table and metadata
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" ,
+                                   filenames_count_tables[6,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+  metadata <- read.table(paste0("./DataToAnalyse/Metadata/Metadata_", data_type, ".csv"),
+                         header = TRUE, sep = ";", dec = ".", row.names = 1)
+
+  # Extract count data, beforehand convert factors columns to characters 
+  count_table <- mutate_if(count_table, is.factor, as.character)
+  counts <- select_if(count_table, is.numeric)
+  
+  # Exclude samples with low sequencing depth from count and metadata
+  print(paste("Sample(s)", paste(colnames(counts)[colSums(counts) <= 13000], collapse = " & "), 
+              "was/were excluded from the", data_type, 
+              "data due to its/their low sequencing depth in ribosomal genes."))
+  counts <- counts[,colSums(counts) > 13000]
+  metadata <- metadata[which(rownames(metadata) %in% colnames(counts)),]
+  
+  # Rarefy count data by multiplying the normalized counts with minimum sequence depth
+  depths <- colSums(counts)
+  normalized_counts <- sweep(x = counts, MARGIN = 2, STATS = colSums(counts), FUN = '/')
+  normalized_counts[,depths==0] <- 0
+  rarefied_counts <- round(normalized_counts * min(depths))
+  print(paste(data_type, "data were rarefied to", min(depths), "reads."))
+  
+  # Exclude 'null' taxa
+  if(any(rowSums(rarefied_counts)==0)){
+    taxa_to_remove <- which(rowSums(rarefied_counts)==0,arr.ind=T)
+    rarefied_counts <- rarefied_counts[-taxa_to_remove,]
+    taxonomy <- select_if(count_table, is.character)
+    taxonomy <- taxonomy[-taxa_to_remove,]
+    print(paste(length(taxa_to_remove), "out of", nrow(counts), "taxa were excluded from", 
+                data_type, "data, thus", nrow(rarefied_counts), "taxa are left."))
+  }
+
+  # Save the rarefied count and metadata as csv
+  write.csv2(cbind(taxonomy, rarefied_counts), 
+             paste0("./DataToAnalyse/PreprocessedData/", data_type, "_", filenames_count_tables[7,]))
+  write.table(metadata, paste0("./DataToAnalyse/Metadata/Metadata_", data_type, ".csv"),
+              sep = ";", dec = ".")
+}
+```
+
+    ## [1] "Sample(s) FR_INF & TU_EFF was/were excluded from the DNA data due to its/their low sequencing depth in ribosomal genes."
+    ## [1] "DNA data were rarefied to 13359 reads."
+    ## [1] "162 out of 2109 taxa were excluded from DNA data, thus 1947 taxa are left."
+    ## [1] "Sample(s) TG_NFC was/were excluded from the RNA data due to its/their low sequencing depth in ribosomal genes."
+    ## [1] "RNA data were rarefied to 13812 reads."
+    ## [1] "498 out of 2391 taxa were excluded from RNA data, thus 1893 taxa are left."
+
+The data are rarefied to a depth of 13,359 DNA and 13,812 RNA marker
+gene sequences per sample.
+
+# 07 Variation caused by sample processing
+
+**Technical replicates:** Technical replicates are repeated measurements
+of the same sample, thus they represent independent measurements of the
+random noise caused by e.g. the sample processing protocols.
+
+When [Ju et al. (2019)](https://doi.org/10.1038/s41396-018-0277-8)
+sampled the WWTPs for the database used in our study, they collected one
+sample per compartment, except for WWTP location “ZR”, where an
+additional two replicates in the inflow compartment were subjected to
+sequencing to assess the variation caused by technical variation. We
+evaluated this variation (see [Assessment of the variation caused by
+sampling processing
+(sequencing)](03_VariationsCausedBySampleProcessing.md)). As we showed
+that variation caused by sequencing was low, we keep only one of the
+three replicates for the remainder of our analyses, to ensure
+comparability with the single samples taken from the other compartments
+at the different WWTP locations.
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table and metadata
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" , 
+                                   filenames_count_tables[7,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+  metadata <- read.table(paste0("./DataToAnalyse/Metadata/Metadata_", data_type, ".csv"), 
+                         header = TRUE, sep = ";", dec = ".", row.names = 1)
+
+  # Check for replicates
+  if(any(grepl("ZR.R2|ZR.R3", colnames(count_table)))){
+    
+    # Delete ZR.R2 and ZR.R3 replicates in count and metadata
+    count_table <- count_table[,!grepl("ZR.R2|ZR.R3", colnames(count_table))]
+    colnames(count_table) <- gsub("ZR.R1", "ZR", colnames(count_table))
+    metadata <- metadata[!grepl("\\.R2|\\.R3",metadata$Location),]
+    metadata$Location <- gsub(".R1", "", metadata$Location)
+    rownames(metadata) <- gsub(".R1", "", rownames(metadata))
+    
+    # Exclude 'null' taxa
+    print(paste(sum(rowSums(select_if(count_table, is.numeric)) == 0),
+                "taxa, specific to the replicates of the location ZR of the",
+                data_type, "data, were excluded."))
+    count_table <- count_table[rowSums(select_if(count_table, is.numeric)) != 0,]
+  }
+    
+  # Export the count table and metadata as csv
+  write.csv2(count_table, paste0("./DataToAnalyse/PreprocessedData/", data_type, "_", 
+                                 filenames_count_tables[8,]))
+  write.table(metadata, paste0("./DataToAnalyse/Metadata/Metadata_", data_type, "_no_replicates.csv"), 
+              sep = ";", dec = ".")
+}
+```
+
+    ## [1] "6 taxa, specific to the replicates of the location ZR of the RNA data, were excluded."
+
+To evaluate whether the quality filtered data reflect the wastewater
+treatment plant communities adequately, we calculated rarefaction curves
+(see [Rarefaction curves for metagenomic (rDNA) and metatranscriptomic
+(rRNA) data](04_RarefactionCurves.md)). Also, an overview of the number
+of reads and OTUs of prokaryotes, protists, fungi and microscopic
+metazoans is provided (see [Microbial community composition after
+quality filtering](05_OverviewCommunityComposition.md)).
+
+# 08 Assignment of traits
+
+We assign functional traits to the taxa identified, using published
+reference databases. Based to the these trait databases, we classified
+the following taxa as **parasites**:
+
+1.  **Protists**: All protist genera associated with human and animal
+    gut and/or feces.  
+2.  **Prokaryotes, fungi, microscopic metazoa**: All prokaryote, fungal
+    and microscopic-metazoan genera that include potentially pathogenic
+    species to humans and animals.
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Load table with traits for each taxon
+traits <- read.table("./OriginalData/Traits.csv", header = TRUE, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table 
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" ,
+                                   filenames_count_tables[8,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+
+  # Convert factor columns to characters 
+  count_table <- count_table %>% mutate_if(is.factor, as.character)
+  traits <- traits %>% mutate_if(is.factor, as.character)
+
+  # Assign Traits
+  count_table_traits <- inner_join(count_table, traits, by = c("Supergroup_Domain", "Phylum", "Class", 
+                                                               "Order", "Family", "Genus"))
+
+  # Check if all trait has been assigned the taxa and also if the number of rows is correct
+  if(nrow(anti_join(count_table, count_table_traits, by=colnames(count_table))) == 0 & 
+     nrow(count_table) == nrow(count_table_traits)){
+    
+    # Re-arrange column
+    count_table_traits <- cbind(select_if(count_table_traits, is.character), 
+                                select_if(count_table_traits, is.numeric))
+
+    # Save the count table as csv
+    write.csv2(count_table_traits, paste0("./DataToAnalyse/PreprocessedData/",
+                                          data_type ,"_", filenames_count_tables[9,]))
+    
+  } else {
+    stop("Error: Traits could not be assigned to all taxa")
+  }
+}
+```
+
+For an overview of all identified parasitic genera see [Parasitic genera
+in WWTPs based on both metagenomic and metatranscriptomic
+data](06_ParasiticGenera.md).
+
+# 09 Subset data
+
+For metagenomic and metatranscriptomic data separate tables are created
+for count-, meta- and taxonomy data respectively.
+
+**Count data:** One row contains all information to one taxon for each
+sample. Column names must be sample-IDs and row names taxa-IDs.
+
+<table style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif; display: table; border-collapse: collapse; margin-left: auto; margin-right: auto; color: #333333; font-size: 16px; font-weight: normal; font-style: normal; background-color: #FFFFFF; width: auto; border-top-style: solid; border-top-width: 2px; border-top-color: #A8A8A8; border-right-style: none; border-right-width: 2px; border-right-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #A8A8A8; border-left-style: none; border-left-width: 2px; border-left-color: #D3D3D3;">
+  
+  
+  <tbody style="border-top-style: solid; border-top-width: 2px; border-top-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #D3D3D3;">
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;"></td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Sample 1</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Sample 2</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Sample 3</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Sample 4</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 1</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">2</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">5</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">7</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">3</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 2</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">7</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">6</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">5</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">1</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 3</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">10</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">7</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">9</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">1</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 4</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">5</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">10</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">5</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">7</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 5</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">7</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">9</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">10</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">6</td></tr>
+  </tbody>
+  
+  
+</table>
+
+**Metadata:** One column per metadata factor providing information for
+each sample. Column names are factors, row names are sample-IDs.
+
+<table style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif; display: table; border-collapse: collapse; margin-left: auto; margin-right: auto; color: #333333; font-size: 16px; font-weight: normal; font-style: normal; background-color: #FFFFFF; width: auto; border-top-style: solid; border-top-width: 2px; border-top-color: #A8A8A8; border-right-style: none; border-right-width: 2px; border-right-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #A8A8A8; border-left-style: none; border-left-width: 2px; border-left-color: #D3D3D3;">
+  
+  
+  <tbody style="border-top-style: solid; border-top-width: 2px; border-top-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #D3D3D3;">
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;"></td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Factor 1</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Factor 2</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Factor 3</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Sample 1</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">T</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">6</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">ground</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Sample 2</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">F</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">5</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">ground</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Sample 3</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">T</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">4</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">air</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Sample 4</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">F</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">2</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">air</td></tr>
+  </tbody>
+  
+  
+</table>
+
+**Taxonomy:** Each column is one taxonomic rank, providing the
+classification of each taxon. Column names are taxonomic ranks, row
+names are taxa-IDs.
+
+<table style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', 'Fira Sans', 'Droid Sans', Arial, sans-serif; display: table; border-collapse: collapse; margin-left: auto; margin-right: auto; color: #333333; font-size: 16px; font-weight: normal; font-style: normal; background-color: #FFFFFF; width: auto; border-top-style: solid; border-top-width: 2px; border-top-color: #A8A8A8; border-right-style: none; border-right-width: 2px; border-right-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #A8A8A8; border-left-style: none; border-left-width: 2px; border-left-color: #D3D3D3;">
+  
+  
+  <tbody style="border-top-style: solid; border-top-width: 2px; border-top-color: #D3D3D3; border-bottom-style: solid; border-bottom-width: 2px; border-bottom-color: #D3D3D3;">
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;"></td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Domain</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Phylum</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Class</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Order</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Family</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Genus</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">Species</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 1</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXXX</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 2</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXXX</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 3</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXXX</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 4</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXXX</td></tr>
+    <tr><td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 11px; background-color: #E0FFFF;">OTU 5</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_X</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXX</td>
+<td style="padding-top: 8px; padding-bottom: 8px; padding-left: 5px; padding-right: 5px; margin: 10px; border-top-style: solid; border-top-width: 1px; border-top-color: #D3D3D3; border-left-style: none; border-left-width: 1px; border-left-color: #D3D3D3; border-right-style: none; border-right-width: 1px; border-right-color: #D3D3D3; vertical-align: middle; overflow-x: hidden; text-align: center; font-size: 9px;">Bacteria_XXXXXX</td></tr>
+  </tbody>
+  
+  
+</table>
+
+<font style='color:red'>**Attention:**</font> Matching row or column
+names of the three data sets should be similarly arranged!
+
+``` r
+# Create new directory for Rdata
+if(!file.exists("./DataToAnalyse/RData")){dir.create("./DataToAnalyse/RData")}
+
+# Load table with names of preprocessed count tables 
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table and metadata
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" ,
+                                   filenames_count_tables[9,]),
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+  metadata <- read.table(paste0("./DataToAnalyse/Metadata/Metadata_", data_type, "_no_replicates.csv"), 
+                         sep=";", dec=".", header = TRUE, row.names = 1)
+  
+  # Convert factors to characters 
+  count_table <- mutate_if(count_table, is.factor, as.character)
+  metadata <- mutate_if(metadata, is.factor, as.character)
+
+  # Set unique row names
+  rownames(count_table) <- paste(seq(nrow(count_table)), count_table$Genus, sep = "_")
+
+  # Separate data in abundance and taxonomy data
+  counts <- select_if(count_table, is.numeric)
+  taxonomy <- select_if(count_table, is.character)
+
+  # Specify the microbial community
+  taxonomy$Microbial_Community <- "Prokaryotes"
+  taxonomy[taxonomy$Database == "PR2",]$Microbial_Community <- "Protists"
+  taxonomy[taxonomy$Database == "PR2" & taxonomy$Phylum == "Metazoa",]$Microbial_Community <- "Metazoa" 
+  taxonomy[taxonomy$Database == "PR2" & taxonomy$Phylum == "Fungi",]$Microbial_Community <- "Fungi"
+  
+  # Check if corresponding row and column names match, else save tables as Data
+  if(!all(identical(colnames(counts), rownames(metadata)), identical(rownames(counts), rownames(taxonomy)))){
+    stop("Corresponding row and column names must match")
+  } else {
+    save(counts, metadata, taxonomy, file = paste0("./DataToAnalyse/RData/", data_type, "_data.rds"))
+  }
+}
+```

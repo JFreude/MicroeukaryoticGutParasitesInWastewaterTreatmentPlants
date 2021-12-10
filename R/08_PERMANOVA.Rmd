@@ -1,0 +1,50 @@
+---
+title: "Permutational Multivariate Analysis of Variance of WWTP compartments"  
+author: "Jule Freudenthal"  
+date: "`r Sys.Date()`"  
+output: github_document
+always_allow_html: yes
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Set global working directory
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+**R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
+**Packages**
+
+* vegan v. 2.5-7  
+
+```{r, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
+# Install packages
+if (!require("vegan")) install.packages("vegan")
+```
+```{r message=FALSE, warning=FALSE}
+# Load packages
+library(vegan)
+```
+
+We test for differences between the treatment compartments both in terms of community composition (rDNA) and activity (rRNA), using Permutational Multivariate Analysis of Variance (PERMANOVA, function adonis, package vegan).
+
+```{r, results='hold', warning=FALSE}
+
+# Loop iterates over the data types (DNA/RNA data) 
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count- and meta- and taxonomy data
+  load(paste0("./DataToAnalyse/RData/", data_type, "_data.rds"))
+
+  # Normalize counts (relative counts)
+  normalized_counts <- sweep(x = counts, MARGIN = 2, STATS = colSums(counts), FUN = '/')
+  
+  # Calculate PERMANOVA 
+  permanova <- adonis(t(normalized_counts) ~ Sample_Place, data = metadata, method ="bray",
+                      strata = metadata$Location, permutations=999)
+  perm<-permanova$aov.tab
+  
+  print(data_type)
+  print(perm)
+}
+```

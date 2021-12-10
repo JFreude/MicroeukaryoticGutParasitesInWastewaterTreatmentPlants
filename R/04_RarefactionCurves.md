@@ -1,0 +1,107 @@
+Rarefaction curves for metagenomic (rDNA) and metatranscriptomic (rRNA)
+data
+================
+Jule Freudenthal
+2021-12-10
+
+**R version:** 3.6.2 (2019-12-12), Dark and Stormy Night **Packages**
+
+-   docstring v. 1.0.0
+-   dplyr v. 1.0.7  
+-   ggplot2 v. 3.3.5  
+-   ggpubr v. 0.4.0  
+-   ggthemes v. 4.2.4  
+-   rlist v. 0.4.6.1
+-   rprojroot v. 2.0.2
+
+``` r
+# Load packages
+library(docstring)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(ggthemes) 
+library(rlist)
+
+# Load functions
+source("./Functions/rarefaction.curves.r")
+source("./Functions/style.sheet.R")
+```
+
+We calculate rarefaction curves from count data using the function
+rarecurve (package vegan) for metagenomic and metatranscriptomic data
+respectively.
+
+# 01 Calculate and visualize rarefaction curves
+
+``` r
+# Load table with names of preprocessed count tables
+filenames_count_tables <- read.table("./R/Lists/Preprocessing_data.csv", header = TRUE, 
+                                     row.names = 1, sep = ";", colClasses = "character")
+
+# Create vectors specifying the sample places and define colors per sample place
+sample_places <- c("INF","DNF","NFC","EFF")
+colors_sample_places <- c("goldenrod1", "firebrick2", "forestgreen", "blue")
+
+# Create open list for plots
+curves <- list()
+
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+  
+  # Load count table and metadata
+  count_table <- read.table(paste0("./DataToAnalyse/PreprocessedData/", data_type, "_" , 
+                                   filenames_count_tables[8,]), 
+                            header = TRUE, sep = ";", dec = ".", row.names = 1)
+
+  # Extract count data 
+  counts <- select_if(count_table, is.numeric)
+
+  # Calculate rarefaction curves
+  rarefaction_curves <-  rarefaction.curves(counts)
+  
+  # Add column specifying the sample places
+  rarefaction_curves$`Sample places` <- gsub(".*_", "", rarefaction_curves$`Sample ID`)
+  
+  # Visualisation
+  plot <- ggplot(rarefaction_curves, aes(x = `Number of reads`, y = `Number of OTUs`, 
+                                         group=`Sample ID`, color = `Sample places`)) +
+    geom_line(size=1) +
+    theme_classic() +
+    theme_hc() 
+
+  # Adjust plot
+  ifelse(data_type == "DNA", title <- "Metagenomics", title <- "Metatranscriptomics")
+  plot <- style.sheet(plot, xlims = c(0, NA), ylims = c(0, NA),
+                      plot.title = title, colors = colors_sample_places, 
+                      legend.text.by.color.order = sample_places, legend.position = "bottom",
+                      legend.title.by.color = "WWTP compartments")
+
+  # Save the plot in the list
+  curves <- list.append(curves, plot)
+}
+```
+
+# 02 Arrange figures
+
+``` r
+# Arrange plots
+plot <- ggarrange(plotlist=curves, ncol = 2, nrow = 1, common.legend = TRUE, 
+                  legend = "bottom")
+
+print(plot)
+```
+
+<img src="04_RarefactionCurves_files/figure-gfm/unnamed-chunk-4-1.png" style="display: block; margin: auto;" />
+
+Rarefaction curves show the number of reads as a function of the number
+of OTUs identified (N=37 samples, i.e. one sample from each WWTP
+compartment (4) at each WWTP location (10), excluding 3 samples because
+of exceptionally low sequencing-depth). Samples are color-coded by
+compartment.  
+With a total richness of 1,947 and 1,887 operational taxonomical units
+(OTUs) identified in the rDNA and rRNA data respectively, rarefaction
+curves show sufficient saturation in sequencing. For an overview of the
+number of reads and OTUs of prokaryotes, protists, fungi and microscopic
+metazoans see [Microbial community composition after quality
+filtering](05_OverviewCommunityComposition.md).

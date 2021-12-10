@@ -1,0 +1,10 @@
+;Filenames
+Original data;data.csv
+Filtered for non-microscopic;data_NoNonMicroscopic.csv
+Renamed taxa;data_NoNonMicroscopic_Renamed.csv
+Filtered for singletons;data_NoNonMicroscopic_Renamed_NoSingletons.csv
+Exclude BE;data_NoNonMicroscopic_Renamed_NoSingletons_NoBe.csv
+Exclude FD;data_NoNonMicroscopic_Renamed_NoSingletons_NoBeFd.csv
+Rarefied data;data_NoNonMicroscopic_Renamed_NoSingletons_NoBeFd_Rarefied.csv
+No replicates;data_NoNonMicroscopic_Renamed_NoSingletons_NoBeFd_Rarefied_NoReplicates.csv
+Assignd traits;data_NoNonMicroscopic_Renamed_NoSingletons_NoBeFd_Rarefied_NoReplicates_Traits.csv

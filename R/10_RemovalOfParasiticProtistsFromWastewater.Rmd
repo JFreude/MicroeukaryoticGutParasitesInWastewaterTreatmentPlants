@@ -1,0 +1,277 @@
+---
+title: "Removal of parasitic protists from wastewater"  
+author: "Jule Freudenthal"  
+date: "`r Sys.Date()`"  
+output: github_document
+always_allow_html: yes
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Set global working directory
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
+
+**R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
+**Packages**
+
+* docstring v. 1.0.0  
+* dplyr v. 1.0.7  
+* ggplot2 v. 3.3.5  
+* ggpubr v. 0.4.0  
+* kableExtra v. 1.3.4  
+* reshape2 v. 1.4.4  
+* rlist v. 0.4.6.1  
+* rstatix v. 0.7.0  
+* tidyr v. 1.1.3  
+
+```{r, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
+# Install packages
+if (!require("docstring")) install.packages("docstring")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("ggpubr")) install.packages("ggpubr")
+if (!require("kableExtra")) install.packages("kableExtra")
+if (!require("reshape2")) install.packages("reshape2")
+if (!require("rlist")) install.packages("rlist")
+if (!require("rstatix")) install.packages("rstatix")
+if (!require("tidyr")) install.packages("tidyr")
+```
+```{r message=FALSE, warning=FALSE}
+# Load packages
+library(docstring)
+library(dplyr)
+library(ggplot2)
+library(ggpubr)
+library(kableExtra)
+library(reshape2)
+library(rlist)
+library(rstatix)
+library(tidyr)
+
+# Load functions
+source("./Functions/line.area.plot.transformation.R")
+source("./Functions/line.area.plot.R")
+source("./Functions/style.sheet.R")
+```
+
+We visualize the relative abundance of selected parasitic protist taxa over time, i.e. over the four WWTP compartments, in line plots. Additionally, we test for significant differences using sign test (function sign_test, package rstatix), comparing their relative abundance in the inflow versus denitrification bioreactor, and the nitrification bioreactor versus the outflow.
+
+# 01 Transform data
+
+```{r, results='hide', message=FALSE}
+# Create vector specifying parasitic protists
+parasitic_protists <- c("Blastocystis", "Copromyxa", "Dientamoeba", "Entamoeba", "Giardia", 
+                        "Guttulinopsis", "Rosculus")
+
+# Create vector specifying the plot titles
+titles <-c("Metagenomics", "Metatranscriptomics")
+
+# Create open list for line plots and open data frame for the sign test
+data_lineplots <- list()
+data_sign_test <- data.frame()
+  
+# Loop iterates over the data types (DNA/RNA data)
+for(data_type in c("DNA", "RNA")){
+
+  #-------------------------------- Load data -------------------------------#
+  # Load count- and meta- and taxonomy data
+  load(paste0("./DataToAnalyse/RData/", data_type, "_data.rds"))
+  
+  # Check if row names of taxonomy and count data match
+  if(!identical(rownames(taxonomy), rownames(counts))){
+    stop("Row names of taxonomy and counts must match")
+  }
+  
+  # Use only Protist data
+  counts <- counts[taxonomy$Microbial_Community == "Protists",]
+  taxonomy <- taxonomy[rownames(taxonomy) %in% rownames(counts),]
+
+  # Normalize counts (relative counts)
+  normalized_counts <- sweep(x = counts, MARGIN = 2, STATS = colSums(counts), FUN = '/')*100
+
+  # Filter data, only keep selected parasitic protists
+  normalized_counts <- normalized_counts[taxonomy[,"Genus"] %in% parasitic_protists,]
+  taxonomy <- taxonomy[taxonomy[,"Genus"] %in% parasitic_protists,]
+
+  ## Boxplots
+  # All column specifying the genera to normalized abundance data 
+  data_boxplot <- cbind(Genera=taxonomy[,"Genus"], normalized_counts)
+  
+  # Reshape data frames, on column per 'Genera', 'Sample ID' and 'normalized abundance'
+  data_boxplot <- melt(data_boxplot, id=(c("Genera")))
+  
+  # Separate 'Sample ID' into columns for Locations and Sample Places  
+  data_boxplot <- data_boxplot %>% separate(variable, c("Location", "Sample_places"), "_")
+
+  # Assign column specifying the data type (DNA/RNA) 
+  data_boxplot$Data <- ifelse(data_type == "DNA", "Metagenomics", "Metatranscriptomics")
+
+  # Save table in data frame
+  data_sign_test <- rbind(data_sign_test, data_boxplot) 
+
+  ## Lineplots
+  # Order rows of metadata, they must match the columns of the abundance data
+  metadata <- metadata[match(colnames(normalized_counts), rownames(metadata)),]
+  
+  # Transform data for Lineplot  
+  data_lineplot <- line.area.plot.transformation(counts = normalized_counts, metadata = metadata,
+                                                 taxonomy = taxonomy,  x.axis = "Sample_Place",
+                                                 fill.factor = "Genus",
+                                                 x.axis.order = c("INF", "DNF", "NFC", "EFF"))
+  # Save table in list                                         
+  data_lineplots <- list.append(data_lineplots, data_lineplot)
+} 
+
+# Name list with lineplot data
+names(data_lineplots) <- titles
+```
+```{r, echo=FALSE}
+rm(list = setdiff(ls(), c("data_sign_test", "data_lineplots", "parasitic_protists", "line.area.plot", "style.sheet")))
+```
+
+# 02 Sign test
+
+```{r}
+# Create open data frame
+Sign_tests <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Data", "Genera", 
+                                                                 "Group1", "Group2", "p"))
+
+# Split data frame to one list per data type and Genus
+data_Sign_test <-  lapply(data_sign_test %>% group_split(Data, Genera), data.frame)
+
+# Loop iterates over the data types (DNA/RNA data) for each taxon
+for(data_set in data_Sign_test){
+
+  # Split data frame, keep only INF-DNF and NFC-EFF data respectively
+  INF_DNF <- data_set[data_set$Sample_places %in% c("INF", "DNF"),]
+  NFC_EFF <- data_set[data_set$Sample_places %in% c("NFC", "EFF"),]
+  
+  # Exclude samples with data for only one locations 
+  INF_DNF <- INF_DNF[!INF_DNF$Location %in% names(which(table(INF_DNF$Location) != 2)),]
+  NFC_EFF <- NFC_EFF[!NFC_EFF$Location %in% names(which(table(NFC_EFF$Location) != 2)),]
+  
+  # Sign test
+  sign_test <- INF_DNF  %>% sign_test(value ~ Sample_places)
+  Sign_tests <- rbind(Sign_tests, data.frame(Data = unique(INF_DNF$Data), 
+                                             Genera = unique(INF_DNF$Genera), 
+                                             Group1 = sign_test$group1, 
+                                             Group2 = sign_test$group2, 
+                                             p = sign_test$p))
+  sign_test <- NFC_EFF  %>% sign_test(value ~ Sample_places)
+  Sign_tests <- rbind(Sign_tests, data.frame(Data = unique(NFC_EFF$Data),
+                                             Genera = unique(NFC_EFF$Genera), 
+                                             Group1 = sign_test$group1, 
+                                             Group2 = sign_test$group2, p = sign_test$p))
+}
+
+# Order table
+Sign_tests <- Sign_tests[order(Sign_tests$Group1, Sign_tests$Data, Sign_tests$Genera),]
+
+# Genus names italic
+Sign_tests$Genera <- cell_spec(Sign_tests$Genera,italic = T)
+
+# Delete row names
+rownames(Sign_tests) <- NULL
+
+# Visualise table
+kable(Sign_tests, escape = F, booktabs = TRUE, align = "lclc") %>%
+  kable_classic(full_width = F, html_font = "Calibri")  %>%
+  kable_styling(font_size = 10, bootstrap_options = "condensed", position = "center", 
+                latex_options = "scale_down") 
+```
+```{r, echo=FALSE}
+rm(list = setdiff(ls(), c("data_lineplots", "parasitic_protists", "line.area.plot", "style.sheet")))
+```
+
+# 03 Visualization
+
+```{r, warning=FALSE, message=FALSE, results='hide', fig.width=10, fig.height=3.25, fig.align='center', fig.show='hold'}
+# Create open list
+lineplots <- list()
+
+# Create a vector specifying the color per taxon
+colors <- c("#D73027", "#FDAE61", "#FEE090", "#B8E186", "#1B7837", "#4575B4", "#ABD9E9")
+
+# Loop iterates over the data types (DNA/RNA data) 
+for(data_type in names(data_lineplots)){
+  
+  # Extract plot data 
+  plot_data <- data_lineplots[[data_type]]
+  
+  # Scale Rosculus (only RNA data)
+  if(data_type == names(data_lineplots)[2]){
+    scaling <- max( plot_data[ plot_data$Genus != "Rosculus", "Mean"] + 
+                      plot_data[ plot_data$Genus != "Rosculus", "Standard Deviation"])/
+      max( plot_data[ plot_data$Genus == "Rosculus", "Mean"] +
+             plot_data[ plot_data$Genus == "Rosculus", "Standard Deviation"])
+     plot_data[ plot_data$Genus == "Rosculus", "Mean"] <-  
+       plot_data[ plot_data$Genus == "Rosculus", "Mean"]*scaling
+     plot_data[ plot_data$Genus == "Rosculus", "Standard Deviation"] <-  
+       plot_data[ plot_data$Genus == "Rosculus", "Standard Deviation"]*scaling
+  } 
+  
+  # Assign colors to taxa
+  plot_data <- merge(plot_data, data.frame(Genus=unique( plot_data$Genus), Colors=colors), 
+                     all = T)
+  
+  # Basic plot 
+  plot <- line.area.plot(plot_data, plot.type="line.smooth", x.axis="X", 
+                         y.axis="Mean", fill.order="Fill", sd="Standard Deviation", 
+                         legend.names = "Genus", color = "Colors") + theme_classic()
+  
+  # Adjust plot
+  if(data_type == names(data_lineplots)[1]){
+    plot <- style.sheet(plot, y.axis.label = "Relative abundances [%]")
+  } else {
+    plot <- plot + scale_y_continuous(sec.axis = sec_axis(~./scaling, 
+                                                          name = "Relative abundances [%]"))+
+      theme(axis.title.y.right = element_text(vjust = 1.5))
+    plot <- style.sheet(plot, y.axis.label = "")
+  }
+  plot <- style.sheet(plot, plot.title = data_type, x.axis.text.labels = 
+                        c("INF", "DNF", "NFC", "EFF"), legend.position = "bottom",
+                      x.axis.label = "", show.legend.by.fill = FALSE,
+                      legend.title.by.color = "Genera", legend.text.style = "italic")
+
+  # Define space between plots (tor arrange them)
+  if(data_type == names(data_lineplots)[1]){
+    plot <- plot + theme(plot.margin = margin(t=0, l=0, r=5, b=0))
+  } else {
+    plot <- plot + theme(plot.margin = margin(t=0, l=5, r=0, b=0))
+  }
+  
+  # Save plot in th list
+  lineplots <- list.append(lineplots, plot)
+}
+
+# Extract legend from line plot
+legend <- get_legend(plot)
+
+# Arrange plots, annotate x-axis
+pdf(NULL)
+lineplots <- ggarrange(plotlist=lineplots, ncol = 2, nrow=1, common.legend = TRUE, 
+                       legend = "none")
+lineplots <- annotate_figure(lineplots, 
+                             right = text_grob("Rosculus", face = "italic", color = "black", 
+                                               size = 13, rot = 270, hjust = 0.8, vjust = 0.5),
+                             bottom = text_grob("WWTP compartments", color = "black", size = 13,
+                                             vjust = 0))
+lineplots <- ggarrange(plotlist=list(lineplots, legend), ncol = 1, nrow=2, heights = c(1,0.2))
+dev.off()
+
+print(lineplots)
+```
+
+Line plots show mean relative abundance of selected parasitic protist genera across the four WWTP compartments. Numbers shown are mean relative protist abundances (across N=10 WWTP locations) of rDNA reads (metagenomics, left-hand side) and rRNA reads (metatranscriptomics, right-hand side). In the latter, abundance of the genus Rosculus is shown on a separate Y-axis because of its high number of rRNA reads. Standard deviations are indicated by the transparent areas (colors matching with individual lines).
+
+```{r, echo=FALSE, results='hide'}
+# Create new directory for plot
+if(!file.exists("./Results")){dir.create("./Results")}
+if(!file.exists("./Results/Lineplots")){dir.create("./Results/Lineplots")}
+
+# Save plot as pdf
+pdf("./Results/Lineplots/LineplotsParasites.pdf", width = 10, height = 3.25)
+print(lineplots)
+dev.off()
+```
