@@ -2,7 +2,7 @@ Microbial community structure and environmental factors in the separate
 WWTP compartments
 ================
 Jule Freudenthal
-2021-12-10
+2022-01-06
 
 **R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
 **Packages**
@@ -187,9 +187,9 @@ NMDS biplots show the microbial community composition in association
 with environmental data for each WWTP compartment. Metagenomic and
 metatranscriptomic data are shown separately. The distribution of the
 samples (symbol-coded by WWTP location) is visualized by the ellipses.
-Significant environmental vectors are shown as arrows (\* p &lt; 0.05;
-\*\* p &lt; 0.01; \*\*\* p &lt; 0.001). Environmental vectors: TN =
-total nitrogen.
+Significant environmental vectors are shown as arrows (\* p \< 0.05;
+\*\* p \< 0.01; \*\*\* p \< 0.001). Environmental vectors: TN = total
+nitrogen.
 
 This analysis shows that environmental factors such as pH, total
 phosphorus and dissolved organic matter do not correlated significantly

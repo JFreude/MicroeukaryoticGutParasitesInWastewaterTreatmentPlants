@@ -3,6 +3,8 @@ title: "Microbial community structure and environmental factors in the separate 
 author: "Jule Freudenthal"  
 date: "`r Sys.Date()`"  
 output: github_document
+editor_options: 
+  chunk_output_type: console
 always_allow_html: yes
 ---
 ```{r setup, include=FALSE}
