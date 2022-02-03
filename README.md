@@ -8,7 +8,7 @@ In this [pipeline]( R/01_DataPreprocessing.md) you find all steps that were perf
 *	[Supplementary Figure 2]( R/03_VariationsCausedBySampleProcessing.md) - Assessment of the variation caused by sampling processing (sequencing)  
 *	[Supplementary Figure 3]( R/04_RarefactionCurves.md) - Rarefaction curves for metagenomic (rDNA) and metatranscriptomic (rRNA) data  
 *	[Supplementary Table 1]( R/05_OverviewCommunityComposition.md) - Microbial community composition after quality filtering   
-*	[Supplementary Table 2]( R/06_ParasiticGenera.md) Parasitic genera in WWTPs based on both metagenomic and metatranscriptomic data  
+*	[Supplementary Table 2]( R/06_ParasiticGenera.md) - Parasitic genera in WWTPs based on both metagenomic and metatranscriptomic data  
 
 ## Area plots, line plots, and box plots
 In this section, we provide scripts for the visualization of the changes in microbial community composition during wastewater treatment ([Figure 1]( R/07_MicrobialCommunityComposition.md)), the total number of rDNA and rRNA sequences ([Supplementary Figure 4]( R/09_TotalNumberSequences.md)), the removal of parasitic protists from wastewater ([Figure 2]( R/10_RemovalOfParasiticProtistsFromWastewater.md)) and the differences between measurable presence and activity of parasitic protists in the inflow ([Figure 3]( R/11_DetectionOfParasiticProtistsInWastewater_AbundanceVersusActivity.md)). Further, we show how to test for significant differences between the treatment compartments ([PERMANOVA]( R/08_PERMANOVA.md)).
