@@ -86,7 +86,7 @@ kable(table, booktabs = TRUE, align = "cccccccc") %>%
   kable_styling(font_size = 12, bootstrap_options = "condensed", position = "center", 
                 latex_options = "scale_down") %>%
   add_header_above(c(" " = 1, "Metagenomics" = 4, "Metatranscriptomics" = 4)) %>%
-  as_image(width = 10) 
+  save_kable("./R/Tables/MicrobialCommunityCompositionAfterQualityFiltering.png") 
 ```
 
-![](C:\Users\Jule\AppData\Local\Temp\Rtmp2peNa0\file5ff0824f79.png)<!-- -->
+![](/R/Tables/MicrobialCommunityCompositionAfterQualityFiltering.png)
