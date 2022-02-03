@@ -2,7 +2,7 @@ Comparing microbial communities between WWTP locations to identify
 outliers
 ================
 Jule Freudenthal
-2021-12-10
+2022-02-03
 
 **R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
 **Packages**
@@ -41,7 +41,7 @@ communities of the different WWTP locations. We
     Bray-Curtis dissimilarity (function vegdist, package vegan) and
     identify significant differences between two WWTP locations,
     respectively, using unpaired two-sample Wilcoxon tests (function
-    stat\_compare\_means, package ggpubr).
+    stat_compare_means, package ggpubr).
 
 # 01 Normalize data
 

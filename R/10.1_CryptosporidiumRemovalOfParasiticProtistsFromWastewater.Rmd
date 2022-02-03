@@ -1,22 +1,43 @@
-Removal of parasitic protists from wastewater
-================
-Jule Freudenthal
-2022-02-03
+---
+title: "Removal of parasitic protists from wastewater"  
+author: "Jule Freudenthal"  
+date: "`r Sys.Date()`"  
+output: github_document
+always_allow_html: yes
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Set global working directory
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
 
 **R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
 **Packages**
 
--   docstring v. 1.0.0  
--   dplyr v. 1.0.7  
--   ggplot2 v. 3.3.5  
--   ggpubr v. 0.4.0  
--   kableExtra v. 1.3.4  
--   reshape2 v. 1.4.4  
--   rlist v. 0.4.6.1  
--   rstatix v. 0.7.0  
--   tidyr v. 1.1.3
+* docstring v. 1.0.0  
+* dplyr v. 1.0.7  
+* ggplot2 v. 3.3.5  
+* ggpubr v. 0.4.0  
+* kableExtra v. 1.3.4  
+* reshape2 v. 1.4.4  
+* rlist v. 0.4.6.1  
+* rstatix v. 0.7.0  
+* tidyr v. 1.1.3  
 
-``` r
+```{r, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
+# Install packages
+if (!require("docstring")) install.packages("docstring")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("ggpubr")) install.packages("ggpubr")
+if (!require("kableExtra")) install.packages("kableExtra")
+if (!require("reshape2")) install.packages("reshape2")
+if (!require("rlist")) install.packages("rlist")
+if (!require("rstatix")) install.packages("rstatix")
+if (!require("tidyr")) install.packages("tidyr")
+```
+```{r message=FALSE, warning=FALSE}
 # Load packages
 library(docstring)
 library(dplyr)
@@ -34,19 +55,14 @@ source("./Functions/line.area.plot.R")
 source("./Functions/style.sheet.R")
 ```
 
-We visualize the relative abundance of selected parasitic protist taxa
-over time, i.e. over the four WWTP compartments, in line plots.
-Additionally, we test for significant differences using sign test
-(function sign_test, package rstatix), comparing their relative
-abundance in the inflow versus denitrification bioreactor, and the
-nitrification bioreactor versus the outflow.
+We visualize the relative abundance of selected parasitic protist taxa over time, i.e. over the four WWTP compartments, in line plots. Additionally, we test for significant differences using sign test (function sign_test, package rstatix), comparing their relative abundance in the inflow versus denitrification bioreactor, and the nitrification bioreactor versus the outflow.
 
 # 01 Transform data
 
-``` r
+```{r, results='hide', message=FALSE}
 # Create vector specifying parasitic protists
-parasitic_protists <- c("Blastocystis", "Copromyxa", "Dientamoeba", "Entamoeba", "Giardia", 
-                        "Guttulinopsis", "Rosculus")
+parasitic_protists <- c("Blastocystis", "Copromyxa", "Cryptosporidium", "Dientamoeba", "Entamoeba", 
+                        "Giardia", "Guttulinopsis", "Rosculus")
 
 # Create vector specifying the plot titles
 titles <-c("Metagenomics", "Metatranscriptomics")
@@ -110,10 +126,13 @@ for(data_type in c("DNA", "RNA")){
 # Name list with lineplot data
 names(data_lineplots) <- titles
 ```
+```{r, echo=FALSE}
+rm(list = setdiff(ls(), c("data_sign_test", "data_lineplots", "parasitic_protists", "line.area.plot", "style.sheet")))
+```
 
 # 02 Sign test
 
-``` r
+```{r}
 # Create open data frame
 Sign_tests <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Data", "Genera", 
                                                                  "Group1", "Group2", "p"))
@@ -156,29 +175,31 @@ Sign_tests$Genera <- cell_spec(Sign_tests$Genera,italic = T)
 rownames(Sign_tests) <- NULL
 
 # Visualise table
-kable(Sign_tests, escape = F, booktabs = TRUE, align = "lclc") %>%
-  kable_classic(full_width = F, html_font = "Calibri")  %>%
-  kable_styling(font_size = 10, bootstrap_options = "condensed", position = "center", 
-                latex_options = "scale_down") %>%
-  save_kable("./R/Tables/SignTestRemovalOfParasiticProtists.png")
+kable(Sign_tests, escape = F, booktabs = TRUE, align = "lclc")# %>%
+  #kable_classic(full_width = F, html_font = "Calibri")  %>%
+  #kable_styling(font_size = 10, bootstrap_options = "condensed", position = "center", 
+  #              latex_options = "scale_down") 
 ```
-
-![](../R/Tables/SignTestRemovalOfParasiticProtists.png)
+```{r, echo=FALSE}
+rm(list = setdiff(ls(), c("data_lineplots", "parasitic_protists", "line.area.plot", "style.sheet")))
+```
 
 # 03 Visualization
 
-``` r
+```{r, warning=FALSE, message=FALSE, results='hide', fig.width=10, fig.height=3.25, fig.align='center', fig.show='hold'}
 # Create open list
 lineplots <- list()
 
 # Create a vector specifying the color per taxon
-colors <- c("#D73027", "#FDAE61", "#FEE090", "#B8E186", "#1B7837", "#4575B4", "#ABD9E9")
+colors <- c("#D73027", "#FDAE61", "#FEE090", "#B8E186", "#1B7837", "#4575B4", "#ABD9E9", "mediumpurple")
 
 # Loop iterates over the data types (DNA/RNA data) 
 for(data_type in names(data_lineplots)){
   
   # Extract plot data 
   plot_data <- data_lineplots[[data_type]]
+  
+  scaling <- 1
   
   # Scale Rosculus (only RNA data)
   if(data_type == names(data_lineplots)[2]){
@@ -192,6 +213,17 @@ for(data_type in names(data_lineplots)){
        plot_data[ plot_data$Genus == "Rosculus", "Standard Deviation"]*scaling
   } 
   
+  ########
+    scaling <- max( plot_data[ plot_data$Genus != "Cryptosporidium", "Mean"] + 
+                      plot_data[ plot_data$Genus != "Cryptosporidium", "Standard Deviation"])/
+      max( plot_data[ plot_data$Genus == "Cryptosporidium", "Mean"] +
+             plot_data[ plot_data$Genus == "Cryptosporidium", "Standard Deviation"])
+     plot_data[ plot_data$Genus == "Cryptosporidium", "Mean"] <-  
+       plot_data[ plot_data$Genus == "Cryptosporidium", "Mean"]*scaling
+     plot_data[ plot_data$Genus == "Cryptosporidium", "Standard Deviation"] <-  
+       plot_data[ plot_data$Genus == "Cryptosporidium", "Standard Deviation"]*scaling
+  ########
+  
   # Assign colors to taxa
   plot_data <- merge(plot_data, data.frame(Genus=unique( plot_data$Genus), Colors=colors), 
                      all = T)
@@ -199,29 +231,40 @@ for(data_type in names(data_lineplots)){
   # Basic plot 
   plot <- line.area.plot(plot_data, plot.type="line.smooth", x.axis="X", 
                          y.axis="Mean", fill.order="Fill", sd="Standard Deviation", 
-                         legend.names = "Genus", color = "Colors") + theme_classic()
+                         legend.names = "Genus", color = "Colors", negative.sd=F) +theme_classic()
   
   # Adjust plot
   if(data_type == names(data_lineplots)[1]){
+    plot <- plot + 
+      scale_y_continuous(sec.axis = sec_axis(~./scaling, name = expression(atop(italic("Cryptosporidium"), 
+                                                                                "Relative abundances [%]"))))+
+      theme(axis.title.y.right = element_text(vjust = 1.5))
+    
     plot <- style.sheet(plot, y.axis.label = "Relative abundances [%]")
   } else {
-    plot <- plot + scale_y_continuous(sec.axis = sec_axis(~./scaling, 
-                                                          name = "Relative abundances [%]"))+
+    plot <- plot + 
+      scale_y_continuous(sec.axis = sec_axis(~./scaling, name = expression(atop(italic("Cryptosporidium"), 
+                                                                                "Relative abundances [%]"))))+
       theme(axis.title.y.right = element_text(vjust = 1.5))
     plot <- style.sheet(plot, y.axis.label = "")
   }
+  
+  # Adjust plot
   plot <- style.sheet(plot, plot.title = data_type, x.axis.text.labels = 
                         c("INF", "DNF", "NFC", "EFF"), legend.position = "bottom",
                       x.axis.label = "", show.legend.by.fill = FALSE,
                       legend.title.by.color = "Genera", legend.text.style = "italic")
 
+  # Adjust text on second y-axis label
+  #plot <- plot + theme(axis.text.y.right = element_blank()) 
+  
   # Define space between plots (tor arrange them)
   if(data_type == names(data_lineplots)[1]){
     plot <- plot + theme(plot.margin = margin(t=0, l=0, r=5, b=0))
   } else {
     plot <- plot + theme(plot.margin = margin(t=0, l=5, r=0, b=0))
   }
-  
+
   # Save plot in th list
   lineplots <- list.append(lineplots, plot)
 }
@@ -234,8 +277,8 @@ pdf(NULL)
 lineplots <- ggarrange(plotlist=lineplots, ncol = 2, nrow=1, common.legend = TRUE, 
                        legend = "none")
 lineplots <- annotate_figure(lineplots, 
-                             right = text_grob("Rosculus", face = "italic", color = "black", 
-                                               size = 13, rot = 270, hjust = 0.8, vjust = 0.5),
+                             #right = text_grob("Rosculus", face = "italic", color = "black", 
+                            #                   size = 13, rot = 270, hjust = 0.8, vjust = 0.5),
                              bottom = text_grob("WWTP compartments", color = "black", size = 13,
                                              vjust = 0))
 lineplots <- ggarrange(plotlist=list(lineplots, legend), ncol = 1, nrow=2, heights = c(1,0.2))
@@ -244,13 +287,15 @@ dev.off()
 print(lineplots)
 ```
 
-<img src="10_RemovalOfParasiticProtistsFromWastewater_files/figure-gfm/unnamed-chunk-7-1.png" style="display: block; margin: auto;" />
+Line plots show mean relative abundance of selected parasitic protist genera across the four WWTP compartments. Numbers shown are mean relative protist abundances (across N=10 WWTP locations) of rDNA reads (metagenomics, left-hand side) and rRNA reads (metatranscriptomics, right-hand side). In the latter, abundance of the genus Rosculus is shown on a separate Y-axis because of its high number of rRNA reads. Standard deviations are indicated by the transparent areas (colors matching with individual lines).
 
-Line plots show mean relative abundance of selected parasitic protist
-genera across the four WWTP compartments. Numbers shown are mean
-relative protist abundances (across N=10 WWTP locations) of rDNA reads
-(metagenomics, left-hand side) and rRNA reads (metatranscriptomics,
-right-hand side). In the latter, abundance of the genus Rosculus is
-shown on a separate Y-axis because of its high number of rRNA reads.
-Standard deviations are indicated by the transparent areas (colors
-matching with individual lines).
+```{r, echo=FALSE, results='hide'}
+# Create new directory for plot
+if(!file.exists("./Results")){dir.create("./Results")}
+if(!file.exists("./Results/Apicomplexa")){dir.create("./Results/Apicomplexa")}
+
+# Save plot as pdf
+pdf("./Results/Apicomplexa/LineplotsParasitesCryptosporidium.pdf", width = 10, height = 3.25)
+print(lineplots)
+dev.off()
+```

@@ -201,11 +201,14 @@ kable(table_overview_taxa[,c("Microbial community","Order","DNA [%]", "RNA [%]",
       booktabs = TRUE, align = "llccc") %>%
   kable_classic(full_width = F, html_font = "Calibri")  %>%
   kable_styling(font_size = 12, bootstrap_options = "condensed", 
-                position = "center", latex_options = "scale_down") 
+                position = "center", latex_options = "scale_down")%>%
+  save_kable("./R/Tables/MicrobialCommunityComposition.png") 
 ```
 ```{r, echo=FALSE}
 rm(list = setdiff(ls(), c("area_plot_tables", "line.area.plot", "style.sheet")))
 ```
+
+![](../R/Tables/MicrobialCommunityComposition.png)
 
 # 03 Colors
 

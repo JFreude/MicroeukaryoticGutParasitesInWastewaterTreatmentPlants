@@ -1,21 +1,41 @@
-Detection of parasitic protists in wastewater: abundance versus activity
-================
-Jule Freudenthal
-2022-02-03
+---
+title: "Detection of parasitic protists in wastewater: abundance versus activity"  
+author: "Jule Freudenthal"  
+date: "`r Sys.Date()`"  
+output: github_document
+always_allow_html: yes
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Set global working directory
+knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
+```
 
 **R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
 **Packages**
 
--   docstring v. 1.0.0  
--   dplyr v. 1.0.7  
--   ggplot2 v. 3.3.5  
--   ggpubr v. 0.4.0  
--   reshape2 v. 1.4.4  
--   rlist v. 0.4.6.1  
--   rstatix v. 0.7.0  
--   tidyr v. 1.1.3
+* docstring v. 1.0.0  
+* dplyr v. 1.0.7  
+* ggplot2 v. 3.3.5  
+* ggpubr v. 0.4.0  
+* reshape2 v. 1.4.4  
+* rlist v. 0.4.6.1  
+* rstatix v. 0.7.0  
+* tidyr v. 1.1.3  
 
-``` r
+```{r, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
+# Install packages
+if (!require("docstring")) install.packages("docstring")
+if (!require("dplyr")) install.packages("dplyr")
+if (!require("ggplot2")) install.packages("ggplot2")
+if (!require("ggpubr")) install.packages("ggpubr")
+if (!require("reshape2")) install.packages("reshape2")
+if (!require("rlist")) install.packages("rlist")
+if (!require("rstatix")) install.packages("rstatix")
+if (!require("tidyr")) install.packages("tidyr")
+```
+```{r message=FALSE, warning=FALSE}
 # Load packages
 library(docstring)
 library(dplyr)
@@ -30,18 +50,13 @@ library(tidyr)
 source("./Functions/style.sheet.R")
 ```
 
-To evaluate differences between measurable presence and activity, we
-compare the relative abundance of rDNA versus rRNA reads for selected
-parasitic protist taxa, focusing on the inflow compartment where they
-were most abundant. We test for differences between rDNA and rRNA
-relative abundance by Sign test, not considering outliers (function
-sign_test, package rstatix).
+To evaluate differences between measurable presence and activity, we compare the relative abundance of rDNA versus rRNA reads for selected parasitic protist taxa, focusing on the inflow compartment where they were most abundant. We test for differences between rDNA and rRNA relative abundance by Sign test, not considering outliers (function sign_test, package rstatix).
 
-# 01 Transform data
+# 01 Transform data 
 
-``` r
+```{r, results='hide', message=FALSE}
 # Create vector specifying parasitic protists
-parasitic_protists <- c("Blastocystis", "Copromyxa", "Dientamoeba", "Entamoeba", "Giardia", 
+parasitic_protists <- c("Blastocystis", "Copromyxa", "Cryptosporidium", "Dientamoeba", "Entamoeba", "Giardia", 
                         "Guttulinopsis", "Rosculus")
 
 # Create open data frame for box plots
@@ -86,10 +101,13 @@ for(data_type in c("DNA", "RNA")){
   data_boxplots <- rbind(data_boxplots, data_boxplot) 
 } 
 ```
+```{r, echo=FALSE}
+rm(list = setdiff(ls(), c("data_boxplots", "parasitic_protists", "style.sheet")))
+```
 
 # 02 Sign test
 
-``` r
+```{r, warning=FALSE}
 # Subset table, only keep Inflow data
 data_boxplots <- data_boxplots[data_boxplots$Sample_places == "INF",]
 
@@ -144,10 +162,13 @@ Sign_tests[Sign_tests$p < 0.001,"sigificance"] <- "***"
 # Name list element
 names(data_boxplots_no_out) <- parasitic_protists
 ```
+```{r, echo=FALSE}
+rm(list = setdiff(ls(), c("data_boxplots", "data_boxplots_no_out", "parasitic_protists", "Sign_tests", "style.sheet")))
+```
 
 # 03 Visualization
 
-``` r
+```{r, warning=FALSE, fig.width=10, fig.height=3.5, fig.align='center', fig.show='hold'}
 # Create open list for all plots and legends
 boxplots <- list()
 boxplots_labels <- list()
@@ -198,26 +219,28 @@ for(taxon in names(data_boxplots_no_out)){
 legend_boxplot <- get_legend(style.sheet(plot, legend.position = "bottom"))
 
 # Arrange subplots
-figure <- ggarrange(plotlist=c(boxplots), ncol = 7, nrow=1,  
-                    widths = c(2,2,2,2.45,2.45,2,2.18), legend = "none")
+figure <- ggarrange(plotlist=c(boxplots), ncol = 8, nrow=1,  
+                    widths = c(2.25,2,2.65,2,2.45,2.45,2,2.2), legend = "none")
 
 # Arrange labels
-labels <- ggarrange(plotlist=boxplots_labels, ncol = 7, nrow=1,
-                    widths = c(2,2,2,2.45,2.45,2,2.18))
+labels <- ggarrange(plotlist=boxplots_labels, ncol = 8, nrow=1,
+                    widths = c(2.25,2,2.65,2,2.45,2.45,2,2.2))
 
 # Arrange whole plot
-boxplots <- ggarrange(figure, labels, legend_boxplot, ncol = 1, nrow=3, heights = c(2.8,1,0.2))
+boxplots <- ggarrange(figure, labels, legend_boxplot, ncol = 1, nrow=3, heights = c(2.6,1.2,0.2))
 
 print(boxplots)
 ```
 
-<img src="11_DetectionOfParasiticProtistsInWastewater_AbundanceVersusActivity_files/figure-gfm/unnamed-chunk-7-1.png" style="display: block; margin: auto;" />
+Boxplots show, for selected taxa, the 25 % and 75 % percentiles and medians of the relative abundance of protist reads in metagenomic data (rDNA, green) and metatranscriptomic data (rRNA, yellow), in samples from the inflow compartment (at N=10 WWTP locations). Significant differences between the rDNA and rRNA abundances are indicated with asterisks (Sign test, * p < 0.05; ** p < 0.01; *** p < 0.001). The grey lines link the rDNA and rRNA sample pairs from the same location.
 
-Boxplots show, for selected taxa, the 25 % and 75 % percentiles and
-medians of the relative abundance of protist reads in metagenomic data
-(rDNA, green) and metatranscriptomic data (rRNA, yellow), in samples
-from the inflow compartment (at N=10 WWTP locations). Significant
-differences between the rDNA and rRNA abundances are indicated with
-asterisks (Sign test, \* p \< 0.05; \*\* p \< 0.01; \*\*\* p \< 0.001).
-The grey lines link the rDNA and rRNA sample pairs from the same
-location.
+```{r, echo=FALSE, results='hide'}
+# Create new directory for plot
+if(!file.exists("./Results")){dir.create("./Results")}
+if(!file.exists("./Results/Apicomplexa")){dir.create("./Results/Apicomplexa")}
+
+# Save plot as pdf
+pdf("./Results/Apicomplexa/BoxplotsParasitesINF.pdf", width = 11,43, height = 3.5)
+print(boxplots)
+dev.off()
+```

@@ -1,7 +1,7 @@
 Microbial community structure and environmental factors across WWTPs
 ================
 Jule Freudenthal
-2021-12-10
+2022-02-03
 
 **R version:** 3.6.2 (2019-12-12), Dark and Stormy Night  
 **Packages**
@@ -148,10 +148,10 @@ NMDS biplots show the microbial community composition across WWTP
 compartments and locations, in association with environmental data.
 Metagenomic and metatranscriptomic data are shown separately. Samples
 are color-coded and grouped (ellipses) by compartment. Significant
-environmental vectors are shown as arrows (\* p &lt; 0.05; \*\* p &lt;
-0.01; \*\*\* p &lt; 0.001). Environmental vectors: DO = dissolved
-oxygen, DOC = dissolved organic carbon, HRT = Hydraulic retention time,
-TN = total nitrogen, TP = total phosphorus.
+environmental vectors are shown as arrows (\* p \< 0.05; \*\* p \< 0.01;
+\*\*\* p \< 0.001). Environmental vectors: DO = dissolved oxygen, DOC =
+dissolved organic carbon, HRT = Hydraulic retention time, TN = total
+nitrogen, TP = total phosphorus.
 
 This analysis shows that environmental factors such as pH, total
 phosphorus and dissolved organic matter correlated significantly with

@@ -261,11 +261,14 @@ rownames(Sign_tests) <- NULL
 kable(Sign_tests, escape = F, booktabs = TRUE, align = "lclc") %>%
   kable_classic(full_width = F, html_font = "Calibri")  %>%
   kable_styling(font_size = 10, bootstrap_options = "condensed", position = "center", 
-                latex_options = "scale_down") 
+                latex_options = "scale_down") %>%
+  save_kable("./R/Tables/SignTestTotalNumberOfSequences.png") 
 ```
 ```{r, echo=FALSE}
 rm(list = setdiff(ls(), c("total_counts", "style.sheet")))
 ```
+
+![](../R/Tables/SignTestTotalNumberOfSequences.png)
 
 # 04 Visualization 
 

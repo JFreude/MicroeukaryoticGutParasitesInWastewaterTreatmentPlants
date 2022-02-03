@@ -16,7 +16,7 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 **Packages**
 
 * dplyr v. 1.0.7  
-* gt v. 0.3.0  
+* kableExtra v. 1.3.4  
 * knitr v.1.33
 * mgsub v. 1.7.2
 * rlist v. 0.4.6.1  
@@ -25,14 +25,14 @@ knitr::opts_knit$set(root.dir = rprojroot::find_rstudio_root_file())
 ```{r, message=FALSE, warning=FALSE, results='hide', echo=FALSE}
 # Install packages
 if (!require("dplyr")) install.packages("dplyr")
-if (!require("gt")) install.packages("gt")
+if (!require("kableExtra")) install.packages("kableExtra")
 if (!require("mgsub")) install.packages("mgsub")
 if (!require("rlist")) install.packages("rlist")
 ```
 ```{r, message=FALSE, warning=FALSE}
 # Load packages
 library(dplyr)
-library(gt)
+library(kableExtra)
 library(mgsub)
 library(rlist)
 ```
@@ -54,28 +54,15 @@ We used metagenomic data (DNA) to assess the WWTP community in terms of taxonomi
 count_table <- read.table(list.files("./OriginalData/", pattern=".*data_Ribo_Blast.*.csv", full.names=T)[1],
                           header = TRUE, sep = ";", dec = ".", row.names = 1)
 
-# Column names as first row to adjust font.size of header
-count_table <- data.frame(rbind(colnames(count_table), as.matrix(count_table)))
-
-# Table
-gt_tbl <- 
-  gt(data = count_table[1:6,1:10]) %>%
-  tab_style(
-    style = cell_text(size = px(9)),
-    locations = cells_body(
-      columns = vars(Supergroup, Phylum, Class, Order, Family, Genus, Species, AD_DNF, AD_EFF, AD_INF))
-  ) %>%
-  tab_style(
-    style = list(cell_text(size = px(11)),
-                 cell_fill(color = "lightcyan")),
-    locations = cells_body(columns = everything(), rows = 1)
-  ) %>%
-  tab_options(
-    column_labels.hidden = T
-  )
-
-gt_tbl %>% as_raw_html()
+# Visualize table
+kable(count_table[1:6,1:10], booktabs = TRUE, align = "cccccccccc") %>%
+  kable_classic(full_width = F, html_font = "Calibri") %>%
+  kable_styling(font_size = 12, bootstrap_options = "condensed", position = "center", 
+                latex_options = "scale_down") %>%
+  save_kable("./R/Tables/T/CountTable.png") 
 ```
+
+![](../R/Tables/CountTable.png)
 
 ## 01.1 Backup
 
@@ -689,97 +676,53 @@ For metagenomic and metatranscriptomic data separate tables are created for coun
 
 **Count data:** One row contains all information to one taxon for each sample. Column names must be sample-IDs and row names taxa-IDs.
 ```{r, warning=FALSE, echo=FALSE}
-# Create count table, column and row names as first row/column to adjust font.size 
-counts <- data.frame(rbind(c("","Sample 1","Sample 2","Sample 3","Sample 4"),
-                           cbind(c("OTU 1","OTU 2","OTU 3","OTU 4","OTU 5"), replicate(4,sample(0:10, 5,rep=TRUE)))))
-# Table
-gt_tbl <- 
-  gt(data = counts) %>%
-  tab_style(
-    style = cell_text(size = px(9)),
-    locations = cells_body(
-      columns = everything())
-  ) %>%
-  tab_style(
-    style = list(cell_text(size = px(11)),
-                 cell_fill(color = "lightcyan")),
-    locations = cells_body(columns = everything(), rows = 1)
-  ) %>%
-  tab_style(
-    style = list(cell_text(size = px(11)),
-                 cell_fill(color = "lightcyan")),
-    locations = cells_body(columns = 1, rows = everything())
-  ) %>%
-  tab_options(
-    column_labels.hidden = T
-  )
+# Create count table
+set.seed(20220203)
+counts <- setNames(data.frame(replicate(4,sample(0:10, 5,rep=TRUE))),c("Sample 1","Sample 2","Sample 3","Sample 4")) 
+rownames(counts) <- c("OTU 1","OTU 2","OTU 3","OTU 4","OTU 5")
 
-gt_tbl %>% as_raw_html()
+# Visualize table
+kable(counts, booktabs = TRUE, align = "cccc") %>%
+  kable_classic(full_width = F, html_font = "Calibri") %>%
+  kable_styling(font_size = 12, bootstrap_options = "condensed", position = "center", 
+                latex_options = "scale_down") %>%
+  save_kable("./R/Tables/OTUTable.png") 
 ```
+![](../R/Tables/OTUTable.png)
 
 **Metadata:** One column per metadata factor providing information for each sample. Column names are factors, row names are sample-IDs.  
 ```{r, warning=FALSE, echo=FALSE}
-# Create metadata, column and row names as first row/column to adjust font.size 
-metadata <- data.frame(rbind(c("","Factor 1","Factor 2","Factor 3"),
-                           cbind(c("Sample 1","Sample 2","Sample 3","Sample 4"), 
-                                 c("T","F","T","F"), sample(0:10, 4, rep=TRUE), c("ground","ground", "air", "air"))))
-# Table
-gt_tbl <- 
-  gt(data = metadata) %>%
-  tab_style(
-    style = cell_text(size = px(9)),
-    locations = cells_body(
-      columns = everything())
-  ) %>%
-  tab_style(
-    style = list(cell_text(size = px(11)),
-                 cell_fill(color = "lightcyan")),
-    locations = cells_body(columns = everything(), rows = 1)
-  ) %>%
-  tab_style(
-    style = list(cell_text(size = px(11)),
-                 cell_fill(color = "lightcyan")),
-    locations = cells_body(columns = 1, rows = everything())
-  ) %>%
-  tab_options(
-    column_labels.hidden = T
-  )
+# Create metadata
+set.seed(20220203)
+metadata <- setNames(data.frame(c("T","F","T","F"), sample(0:10, 4, rep=TRUE), c("ground","ground", "air", "air")), 
+         c("Factor 1","Factor 2","Factor 3"))
+rownames(metadata) <- c("Sample 1","Sample 2","Sample 3","Sample 4")
 
-gt_tbl %>% as_raw_html()
+# Visualize table
+kable(metadata, booktabs = TRUE, align = "ccc") %>%
+  kable_classic(full_width = F, html_font = "Calibri") %>%
+  kable_styling(font_size = 12, bootstrap_options = "condensed", position = "center", 
+                latex_options = "scale_down") %>%
+  save_kable("./R/Tables/MetaTable.png") 
 ```
+![](../R/Tables/MetaTable.png)
 
 **Taxonomy:** Each column is one taxonomic rank, providing the classification of each taxon. Column names are taxonomic ranks, row names are taxa-IDs.
 ```{r, warning=FALSE, echo=FALSE}
-# Create count table, column and row names as first row/column to adjust font.size 
-taxonomy <- data.frame(rbind(c("","Domain",	"Phylum", "Class", "Order", "Family", "Genus",	"Species"),
-                           cbind(c("OTU 1","OTU 2","OTU 3","OTU 4","OTU 5"),
-                                 t(replicate(5,c("Bacteria", "Bacteria_X", "Bacteria_XX", "Bacteria_XXX", 
-                                                 "Bacteria_XXXX", "Bacteria_XXXXX", "Bacteria_XXXXXX"))))))
+# Create taxonomy
+taxonomy <- setNames(data.frame(t(replicate(5,c("Bacteria", "Bacteria_X", "Bacteria_XX", "Bacteria_XXX", 
+                                                 "Bacteria_XXXX", "Bacteria_XXXXX", "Bacteria_XXXXXX")))), 
+                     c("Domain",	"Phylum", "Class", "Order", "Family", "Genus",	"Species"))
+rownames(taxonomy) <- c("OTU 1","OTU 2","OTU 3","OTU 4","OTU 5")
 
-# Table
-gt_tbl <- 
-  gt(data = taxonomy) %>%
-  tab_style(
-    style = cell_text(size = px(9)),
-    locations = cells_body(
-      columns = everything())
-  ) %>%
-  tab_style(
-    style = list(cell_text(size = px(11)),
-                 cell_fill(color = "lightcyan")),
-    locations = cells_body(columns = everything(), rows = 1)
-  ) %>%
-  tab_style(
-    style = list(cell_text(size = px(11)),
-                 cell_fill(color = "lightcyan")),
-    locations = cells_body(columns = 1, rows = everything())
-  ) %>%
-  tab_options(
-    column_labels.hidden = T
-  )
-
-gt_tbl %>% as_raw_html()
+# Visualize table
+kable(taxonomy, booktabs = TRUE, align = "ccccccc") %>%
+  kable_classic(full_width = F, html_font = "Calibri") %>%
+  kable_styling(font_size = 12, bootstrap_options = "condensed", position = "center", 
+                latex_options = "scale_down") %>%
+  save_kable("./R/Tables/TaxonomyTable.png") 
 ```
+![](../R/Tables/TaxonomyTable.png)
 
 <font style='color:red'>**Attention:**</font> Matching row or column names of the three data sets should be similarly arranged!
 ```{r}
