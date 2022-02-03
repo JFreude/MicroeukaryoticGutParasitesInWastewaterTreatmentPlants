@@ -3,7 +3,7 @@ This repository is a collection of scripts that guide you through the data analy
 The original data (the raw OTU tables with taxonomic annotation, the metadata, and the trait database we used to assign the parasites) are provided in the folder [OriginalData](OriginalData/). Intermediate files, as well as results and figures, can be obtained by running the data analysis scripts.
 
 ## Data processing
-In this [pipeline]( R/01_DataPreprocessing.md) you find all steps that were performed the process the raw OUT data. Within this pipeline, you also find links to the scripts for  
+In this [pipeline]( R/01_DataPreprocessing.md) you find all steps that were performed the process the raw OTU data. Within this pipeline, you also find links to the scripts for  
 *	[Supplementary Figure 1]( R/02_MultivariateDispersionAndBetaDiversity.md) - Comparing microbial communities between WWTP locations to identify outliers  
 *	[Supplementary Figure 2]( R/03_VariationsCausedBySampleProcessing.md) - Assessment of the variation caused by sampling processing (sequencing)  
 *	[Supplementary Figure 3]( R/04_RarefactionCurves.md) - Rarefaction curves for metagenomic (rDNA) and metatranscriptomic (rRNA) data  
