@@ -1,5 +1,5 @@
 # Microeukaryotic gut parasites in wastewater treatment plants: diversity, activity, and removal
-This repository is a collection of scripts that guide you through the data analyses of the paper of [Freudenthal et al., 2022]().  
+This repository is a collection of scripts that guide you through the data analyses of the paper of [Freudenthal et al., 2022](https://microbiomejournal.biomedcentral.com/articles/10.1186/s40168-022-01225-y).  
 The original data (the raw OTU tables with taxonomic annotation, the metadata, and the trait database we used to assign the parasites) are provided in the folder [OriginalData](OriginalData/). Intermediate files, as well as results and figures, can be obtained by running the data analysis scripts.
 
 ## Data processing
