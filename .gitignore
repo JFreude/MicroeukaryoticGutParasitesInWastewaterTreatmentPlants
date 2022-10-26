@@ -53,7 +53,9 @@ Results
 
 # Script
 R/15_Gifs.Rmd
-13_MicrobialCommunityStructureAndEnvironmentalFactorsInTheSeparateWWTPCompartments.Rmd
-13_MicrobialCommunityStructureAndEnvironmentalFactorsInTheSeparateWWTPCompartments.md
-14_CoOccurrenceNetworksOfParasiticOrdersInTheInflowAndDenitrificationBioreactor.Rmd
-14_CoOccurrenceNetworksOfParasiticOrdersInTheInflowAndDenitrificationBioreactor.md
+R/10.1_CryptosporidiumRemovalOfParasiticProtistsFromWastewater.Rmd
+
+#text
+Paper.pdf
+PressRelease.docx
+Text_PressRelease.docx

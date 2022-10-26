@@ -61,8 +61,8 @@ We visualize the relative abundance of selected parasitic protist taxa over time
 
 ```{r, results='hide', message=FALSE}
 # Create vector specifying parasitic protists
-parasitic_protists <- c("Blastocystis", "Copromyxa", "Cryptosporidium", "Dientamoeba", "Entamoeba", 
-                        "Giardia", "Guttulinopsis", "Rosculus")
+parasitic_protists <- c("Acanthamoebidae_X", "Blastocystis", "Copromyxa", "Cryptosporidium",
+                        "Dientamoeba", "Entamoeba", "Giardia", "Guttulinopsis", "Rosculus")
 
 # Create vector specifying the plot titles
 titles <-c("Metagenomics", "Metatranscriptomics")
@@ -87,6 +87,9 @@ for(data_type in c("DNA", "RNA")){
   counts <- counts[taxonomy$Microbial_Community == "Protists",]
   taxonomy <- taxonomy[rownames(taxonomy) %in% rownames(counts),]
 
+  # Replace all Acanthamoebidae genera with Acanthamoebidae_X
+  taxonomy[taxonomy$Family == "Acanthamoebidae", "Genus"] <- "Acanthamoebidae_X"
+  
   # Normalize counts (relative counts)
   normalized_counts <- sweep(x = counts, MARGIN = 2, STATS = colSums(counts), FUN = '/')*100
 
@@ -94,12 +97,24 @@ for(data_type in c("DNA", "RNA")){
   normalized_counts <- normalized_counts[taxonomy[,"Genus"] %in% parasitic_protists,]
   taxonomy <- taxonomy[taxonomy[,"Genus"] %in% parasitic_protists,]
 
+  # Sum by parasites
+  taxonomy$Parasites <- taxonomy$Genus
+  taxonomy[taxonomy$Parasites == "Acanthamoebidae_X", "Parasites"] <- "Acanthamoebidae"
+  normalized_counts <- cbind(Parasites = taxonomy$Parasites, normalized_counts)
+  normalized_counts <- data.frame(normalized_counts %>% 
+                                    group_by(Parasites) %>%
+                                    summarise_if(is.numeric, sum) %>% 
+                                    mutate_if(is.factor, as.character)) 
+  rownames(normalized_counts) <- paste(seq(nrow(normalized_counts)), normalized_counts$Parasites, sep = "_")
+  taxonomy <- data.frame(normalized_counts %>% select_if(is.character))
+  normalized_counts <- data.frame(normalized_counts %>% select_if(is.numeric))
+  
   ## Boxplots
   # All column specifying the genera to normalized abundance data 
-  data_boxplot <- cbind(Genera=taxonomy[,"Genus"], normalized_counts)
+  data_boxplot <- cbind(Parasites=taxonomy$Parasites, normalized_counts)
   
-  # Reshape data frames, on column per 'Genera', 'Sample ID' and 'normalized abundance'
-  data_boxplot <- melt(data_boxplot, id=(c("Genera")))
+  # Reshape data frames, on column per 'Parasites', 'Sample ID' and 'normalized abundance'
+  data_boxplot <- melt(data_boxplot, id=(c("Parasites")))
   
   # Separate 'Sample ID' into columns for Locations and Sample Places  
   data_boxplot <- data_boxplot %>% separate(variable, c("Location", "Sample_places"), "_")
@@ -117,7 +132,7 @@ for(data_type in c("DNA", "RNA")){
   # Transform data for Lineplot  
   data_lineplot <- line.area.plot.transformation(counts = normalized_counts, metadata = metadata,
                                                  taxonomy = taxonomy,  x.axis = "Sample_Place",
-                                                 fill.factor = "Genus",
+                                                 fill.factor = "Parasites",
                                                  x.axis.order = c("INF", "DNF", "NFC", "EFF"))
   # Save table in list                                         
   data_lineplots <- list.append(data_lineplots, data_lineplot)
@@ -134,11 +149,11 @@ rm(list = setdiff(ls(), c("data_sign_test", "data_lineplots", "parasitic_protist
 
 ```{r}
 # Create open data frame
-Sign_tests <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Data", "Genera", 
+Sign_tests <- setNames(data.frame(matrix(ncol = 5, nrow = 0)), c("Data", "Parasites", 
                                                                  "Group1", "Group2", "p"))
 
 # Split data frame to one list per data type and Genus
-data_Sign_test <-  lapply(data_sign_test %>% group_split(Data, Genera), data.frame)
+data_Sign_test <-  lapply(data_sign_test %>% group_split(Data, Parasites), data.frame)
 
 # Loop iterates over the data types (DNA/RNA data) for each taxon
 for(data_set in data_Sign_test){
@@ -154,22 +169,24 @@ for(data_set in data_Sign_test){
   # Sign test
   sign_test <- INF_DNF  %>% sign_test(value ~ Sample_places)
   Sign_tests <- rbind(Sign_tests, data.frame(Data = unique(INF_DNF$Data), 
-                                             Genera = unique(INF_DNF$Genera), 
+                                             Parasites = unique(INF_DNF$Parasites), 
                                              Group1 = sign_test$group1, 
                                              Group2 = sign_test$group2, 
                                              p = sign_test$p))
   sign_test <- NFC_EFF  %>% sign_test(value ~ Sample_places)
   Sign_tests <- rbind(Sign_tests, data.frame(Data = unique(NFC_EFF$Data),
-                                             Genera = unique(NFC_EFF$Genera), 
+                                             Parasites = unique(NFC_EFF$Parasites), 
                                              Group1 = sign_test$group1, 
                                              Group2 = sign_test$group2, p = sign_test$p))
 }
 
 # Order table
-Sign_tests <- Sign_tests[order(Sign_tests$Group1, Sign_tests$Data, Sign_tests$Genera),]
+Sign_tests <- Sign_tests[order(Sign_tests$Group1, Sign_tests$Data, Sign_tests$Parasites),]
+Sign_tests <- data.frame(Sign_tests %>% mutate_if(is.factor, as.character))
 
 # Genus names italic
-Sign_tests$Genera <- cell_spec(Sign_tests$Genera,italic = T)
+Sign_tests[Sign_tests$Parasites != "Acanthamoebidae","Parasites"]  <- 
+  cell_spec(Sign_tests[Sign_tests$Parasites != "Acanthamoebidae","Parasites"],italic = T) 
 
 # Delete row names
 rownames(Sign_tests) <- NULL
@@ -191,7 +208,7 @@ rm(list = setdiff(ls(), c("data_lineplots", "parasitic_protists", "line.area.plo
 lineplots <- list()
 
 # Create a vector specifying the color per taxon
-colors <- c("#D73027", "#FDAE61", "#FEE090", "#B8E186", "#1B7837", "#4575B4", "#ABD9E9", "mediumpurple")
+colors <- c("#D73027", "#FDAE61", "#FEE090", "#B8E186", "#1B7837", "#4575B4", "#ABD9E9", "mediumpurple", "plum3")
 
 # Loop iterates over the data types (DNA/RNA data) 
 for(data_type in names(data_lineplots)){
@@ -203,47 +220,49 @@ for(data_type in names(data_lineplots)){
   
   # Scale Rosculus (only RNA data)
   if(data_type == names(data_lineplots)[2]){
-    scaling <- max( plot_data[ plot_data$Genus != "Rosculus", "Mean"] + 
-                      plot_data[ plot_data$Genus != "Rosculus", "Standard Deviation"])/
-      max( plot_data[ plot_data$Genus == "Rosculus", "Mean"] +
-             plot_data[ plot_data$Genus == "Rosculus", "Standard Deviation"])
-     plot_data[ plot_data$Genus == "Rosculus", "Mean"] <-  
-       plot_data[ plot_data$Genus == "Rosculus", "Mean"]*scaling
-     plot_data[ plot_data$Genus == "Rosculus", "Standard Deviation"] <-  
-       plot_data[ plot_data$Genus == "Rosculus", "Standard Deviation"]*scaling
+    scaling <- max( plot_data[ plot_data$Parasites != "Rosculus", "Mean"] + 
+                      plot_data[ plot_data$Parasites != "Rosculus", "Standard Deviation"])/
+      max( plot_data[ plot_data$Parasites == "Rosculus", "Mean"] +
+             plot_data[ plot_data$Parasites == "Rosculus", "Standard Deviation"])
+     plot_data[ plot_data$Parasites == "Rosculus", "Mean"] <-  
+       plot_data[ plot_data$Parasites == "Rosculus", "Mean"]*scaling
+     plot_data[ plot_data$Parasites == "Rosculus", "Standard Deviation"] <-  
+       plot_data[ plot_data$Parasites == "Rosculus", "Standard Deviation"]*scaling
   } 
   
   ########
-    scaling <- max( plot_data[ plot_data$Genus != "Cryptosporidium", "Mean"] + 
-                      plot_data[ plot_data$Genus != "Cryptosporidium", "Standard Deviation"])/
-      max( plot_data[ plot_data$Genus == "Cryptosporidium", "Mean"] +
-             plot_data[ plot_data$Genus == "Cryptosporidium", "Standard Deviation"])
-     plot_data[ plot_data$Genus == "Cryptosporidium", "Mean"] <-  
-       plot_data[ plot_data$Genus == "Cryptosporidium", "Mean"]*scaling
-     plot_data[ plot_data$Genus == "Cryptosporidium", "Standard Deviation"] <-  
-       plot_data[ plot_data$Genus == "Cryptosporidium", "Standard Deviation"]*scaling
+  scaling <- max( plot_data[ plot_data$Parasites != "Acanthamoebidae", "Mean"] + 
+                      plot_data[ plot_data$Parasites != "Acanthamoebidae", "Standard Deviation"])/
+      max( plot_data[ plot_data$Parasites == "Acanthamoebidae", "Mean"] +
+             plot_data[ plot_data$Parasites == "Acanthamoebidae", "Standard Deviation"])
+     
+  plot_data[ plot_data$Parasites == "Acanthamoebidae", "Mean"] <-  
+       plot_data[ plot_data$Parasites == "Acanthamoebidae", "Mean"]*scaling
+  
+  plot_data[ plot_data$Parasites == "Acanthamoebidae", "Standard Deviation"] <-  
+       plot_data[ plot_data$Parasites == "Acanthamoebidae", "Standard Deviation"]*scaling
   ########
   
   # Assign colors to taxa
-  plot_data <- merge(plot_data, data.frame(Genus=unique( plot_data$Genus), Colors=colors), 
+  plot_data <- merge(plot_data, data.frame(Parasites=unique( plot_data$Parasites), Colors=colors), 
                      all = T)
-  
+
   # Basic plot 
   plot <- line.area.plot(plot_data, plot.type="line.smooth", x.axis="X", 
                          y.axis="Mean", fill.order="Fill", sd="Standard Deviation", 
-                         legend.names = "Genus", color = "Colors", negative.sd=F) +theme_classic()
+                         legend.names = "Parasites", color = "Colors", negative.sd=F) +theme_classic()
   
   # Adjust plot
   if(data_type == names(data_lineplots)[1]){
     plot <- plot + 
-      scale_y_continuous(sec.axis = sec_axis(~./scaling, name = expression(atop(italic("Cryptosporidium"), 
+      scale_y_continuous(sec.axis = sec_axis(~./scaling, name = expression(atop("Acanthamoebidae",#italic("Acanthamoebidae"), 
                                                                                 "Relative abundances [%]"))))+
       theme(axis.title.y.right = element_text(vjust = 1.5))
     
     plot <- style.sheet(plot, y.axis.label = "Relative abundances [%]")
   } else {
     plot <- plot + 
-      scale_y_continuous(sec.axis = sec_axis(~./scaling, name = expression(atop(italic("Cryptosporidium"), 
+      scale_y_continuous(sec.axis = sec_axis(~./scaling, name = expression(atop("Acanthamoebidae",#italic("Rosculus"), 
                                                                                 "Relative abundances [%]"))))+
       theme(axis.title.y.right = element_text(vjust = 1.5))
     plot <- style.sheet(plot, y.axis.label = "")
@@ -252,11 +271,10 @@ for(data_type in names(data_lineplots)){
   # Adjust plot
   plot <- style.sheet(plot, plot.title = data_type, x.axis.text.labels = 
                         c("INF", "DNF", "NFC", "EFF"), legend.position = "bottom",
-                      x.axis.label = "", show.legend.by.fill = FALSE,
-                      legend.title.by.color = "Genera", legend.text.style = "italic")
+                      x.axis.label = "", show.legend.by.fill = FALSE, legend.text.style = "italic")
 
   # Adjust text on second y-axis label
-  #plot <- plot + theme(axis.text.y.right = element_blank()) 
+  plot <- plot + theme(axis.text.y.right = element_blank()) 
   
   # Define space between plots (tor arrange them)
   if(data_type == names(data_lineplots)[1]){
@@ -295,7 +313,7 @@ if(!file.exists("./Results")){dir.create("./Results")}
 if(!file.exists("./Results/Apicomplexa")){dir.create("./Results/Apicomplexa")}
 
 # Save plot as pdf
-pdf("./Results/Apicomplexa/LineplotsParasitesCryptosporidium.pdf", width = 10, height = 3.25)
+pdf("./Results/Apicomplexa/LineplotsParasitesAcanthamoebidae_noText2.pdf", width = 10, height = 3.25)
 print(lineplots)
 dev.off()
 ```
