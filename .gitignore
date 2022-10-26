@@ -54,6 +54,7 @@ Results
 # Script
 R/15_Gifs.Rmd
 R/10.1_CryptosporidiumRemovalOfParasiticProtistsFromWastewater.Rmd
+R/11.1_CryptosporidiumDetectionOfParasiticProtistsInWastewater_AbundanceVersusActivity.Rmd
 
 #text
 Paper.pdf
